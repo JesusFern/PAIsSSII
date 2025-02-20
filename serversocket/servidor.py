@@ -20,6 +20,10 @@ LOG_PATH = os.path.join(LOG_DIR, 'server.log')
 DB_PATH = os.path.join(DB_DIR, 'usuarios.db')
 AUDIT_LOG_PATH = os.path.join(LOG_DIR, 'audit.log')
 
+# Crear directorios si no existen
+if not os.path.exists(LOG_DIR):
+    os.makedirs(LOG_DIR)
+
 # Configuración de logging
 logging.basicConfig(
     level=logging.INFO,
@@ -35,11 +39,11 @@ SECRET_KEY = 'super_secret_key'  # Considerar usar una clave más compleja y gen
 DATABASE_ENCRYPTION_KEY = Fernet.generate_key()
 
 # Configuración de tiempos y límites
-NONCE_EXPIRATION_TIME = 300  # Tiempo de expiración en segundos
+NONCE_EXPIRATION_TIME = 180  # Tiempo de expiración en segundos
 MAX_INTENTOS = 5
 BLOQUEO_TIEMPO = 300  # Tiempo de bloqueo en segundos (5 minutos)
-INTENTOS_EXPIRATION_TIME = 10  # Tiempo de expiración para intentos fallidos (1 hora)
-SESSION_TIMEOUT = 10  # Tiempo de inactividad en segundos
+INTENTOS_EXPIRATION_TIME = 300  # Tiempo de expiración para intentos fallidos (1 hora)
+SESSION_TIMEOUT = 300  # Tiempo de inactividad en segundos
 
 # Estructuras de datos para gestión de sesiones y seguridad
 client_nonces = {}
@@ -48,6 +52,7 @@ active_sessions = {}
 # Asegurar permisos de la base de datos
 if os.path.exists(DB_PATH):
     os.chmod(DB_PATH, 0o600)  # Solo lectura/escritura para el usuario propietario
+
 # -------------------------------
 # Funciones de Base de Datos
 # -------------------------------
@@ -82,14 +87,12 @@ def create_db():
                         cuenta_origen TEXT,
                         cuenta_destino TEXT,
                         cantidad REAL,
+                        hash TEXT,
                         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS intentos_fallidos (
                         username TEXT PRIMARY KEY,
                         intentos INTEGER,
                         ultimo_intento REAL)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS metadata (
-                        key TEXT PRIMARY KEY,
-                        value TEXT)''')
     conn.commit()
     conn.close()
 
@@ -121,7 +124,7 @@ def authenticate_user(username, password):
 
         stored_data = cursor.execute('SELECT hashed_password, salt FROM usuarios WHERE username = ?', (username,)).fetchone()
         if not stored_data:
-            return 'USER_NOT_FOUND'
+            return 'LOGIN_FAILED'
 
         if secure_comparator(hashlib.sha256((password + stored_data[1]).encode()).hexdigest(), stored_data[0], SECRET_KEY):
             cursor.execute('DELETE FROM intentos_fallidos WHERE username = ?', (username,))
@@ -144,25 +147,26 @@ def record_transaction(cuenta_origen, cuenta_destino, cantidad):
     transaction_hash = hashlib.sha256(transaction_data.encode()).hexdigest()
 
     # Verificar si la transacción ya existe con comparador seguro
-    cursor.execute("SELECT cantidad FROM transacciones WHERE cuenta_origen=? AND cuenta_destino=?",
+    cursor.execute("SELECT cantidad, hash FROM transacciones WHERE cuenta_origen=? AND cuenta_destino=?",
                    (cuenta_origen, cuenta_destino))
     existing_transaction = cursor.fetchone()
 
     if existing_transaction:
-        stored_amount = str(existing_transaction[0])
-        stored_hash = hashlib.sha256(f"{cuenta_origen}:{cuenta_destino}:{stored_amount}".encode()).hexdigest()
-
-        # Comparación segura
+        stored_amount, stored_hash = existing_transaction
         if secure_comparator(transaction_hash, stored_hash, SECRET_KEY):
             conn.close()
             return False  # No registrar transacción duplicada
 
     # Insertar la nueva transacción
     try:
-        cursor.execute('INSERT INTO transacciones (cuenta_origen, cuenta_destino, cantidad) VALUES (?, ?, ?)',
-                       (cuenta_origen, cuenta_destino, cantidad))
+        cursor.execute('INSERT INTO transacciones (cuenta_origen, cuenta_destino, cantidad, hash) VALUES (?, ?, ?, ?)',
+                       (cuenta_origen, cuenta_destino, cantidad, transaction_hash))
         conn.commit()
         log_audit(f"Transacción registrada: Origen={cuenta_origen}, Destino={cuenta_destino}, Cantidad={cantidad}")
+        
+        # Realizar verificación de integridad después de la transacción
+        perform_database_integrity_check()
+        
         return True
     except sqlite3.Error as e:
         logging.error(f"Database error: {e}")
@@ -222,24 +226,39 @@ def clean_old_failed_attempts():
     log_audit("Limpieza de intentos fallidos antiguos realizada.")
 
 def perform_database_integrity_check():
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM transacciones")
-        calculated_hash = hashlib.sha256(str(cursor.fetchall()).encode('utf-8')).hexdigest()
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Obtener todas las transacciones
+        cursor.execute("SELECT id, cuenta_origen, cuenta_destino, cantidad FROM transacciones")
+        transactions = cursor.fetchall()
         
-        cursor.execute("SELECT value FROM metadata WHERE key = 'transactions_hash'")
-        stored_hash = cursor.fetchone()
+        for transaction in transactions:
+            id, cuenta_origen, cuenta_destino, cantidad = transaction
+            
+            # Recalcular el hash de la transacción
+            transaction_data = f"{cuenta_origen}:{cuenta_destino}:{str(cantidad)}"
+            calculated_hash = hashlib.sha256(transaction_data.encode()).hexdigest()
+            
+            # Obtener el hash almacenado en la base de datos
+            cursor.execute("SELECT hash FROM transacciones WHERE id = ?", (id,))
+            stored_hash = cursor.fetchone()[0]
+            
+            # Comparar los hashes de manera segura
+            if not secure_comparator(calculated_hash, stored_hash, SECRET_KEY):
+                log_audit(f"Integridad comprometida en la transacción ID {id}")
+                return False
         
-        if stored_hash:
-            if secure_comparator(calculated_hash, stored_hash[0], SECRET_KEY):
-                log_message("Integridad de la base de datos verificada.", ("Sistema", "Integridad"))
-            else:
-                log_message("¡ALERTA! La integridad de la base de datos ha fallado.", ("Sistema", "Integridad"))
-                log_audit("¡ALERTA! Fallo en la verificación de integridad de la base de datos.")
-        else:
-            log_message("Hash de transacciones no encontrado. Inicializando...", ("Sistema", "Integridad"))
-            cursor.execute("INSERT INTO metadata (key, value) VALUES ('transactions_hash', ?)", (calculated_hash,))
-            conn.commit()
+        log_audit("Verificación de integridad de la base de datos completada con éxito")
+        return True
+    
+    except sqlite3.Error as e:
+        log_audit(f"Error durante la verificación de integridad de la base de datos: {e}")
+        return False
+    
+    finally:
+        conn.close()
 
 def backup_database():
     backup_path = os.path.join(BASE_DIR, '..', 'backup', f'usuarios_backup_{time.strftime("%Y%m%d%H%M%S")}.db')
@@ -251,6 +270,11 @@ def backup_database():
     except sqlite3.Error as e:
         log_message(f"Error al realizar la copia de seguridad: {e}", ("Sistema", "Backup"))
         log_audit(f"Error al realizar la copia de seguridad: {e}")
+
+def scheduled_backup():
+    while True:
+        backup_database()
+        time.sleep(86400) 
 
 def check_session_timeout():
     while True:
@@ -339,7 +363,7 @@ def start_server():
 def log_message(message, address):
     log_entry = f'[{time.strftime("%Y-%m-%d %H:%M:%S")}] {address[0]}:{address[1]} - {message}\n\n'
     root.after(0, lambda: (text_widget.insert(tk.END, log_entry), text_widget.yview(tk.END)))
-    with open('server.log', 'a') as log_file:
+    with open(LOG_PATH, 'a') as log_file:
         log_file.write(log_entry)
 
 # Inicialización y ejecución
@@ -352,7 +376,7 @@ if __name__ == "__main__":
     create_db()
     
     for task in [start_server, clean_old_nonces, clean_old_failed_attempts, 
-                 perform_database_integrity_check, backup_database, check_session_timeout]:
+                 perform_database_integrity_check, check_session_timeout, scheduled_backup]:
         threading.Thread(target=task, daemon=True).start()
 
     root.mainloop()

@@ -13,7 +13,7 @@ class InterfazCliente:
         self.root.title("Cliente de Autenticación")
         self.root.geometry("350x450")
         self.root.config(bg="#f0f0f0")
-        self.root.resizable(False, False)  # Deshabilitar el reajuste de la ventana
+        self.root.resizable(False, False) 
 
         self.crear_widgets()
         self.pack_widgets_inicial()
