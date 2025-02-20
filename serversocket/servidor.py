@@ -1,3 +1,4 @@
+import logging
 import os
 import hmac
 import hashlib
@@ -9,8 +10,19 @@ import time
 import tkinter as tk
 from tkinter import scrolledtext
 
-# Configuración de la base de datos
+# Configuración de logging
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LOG_PATH = os.path.join(BASE_DIR, '..', 'server.log')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(LOG_PATH),
+        logging.StreamHandler()
+    ]
+)
+
+# Configuración de la base de datos
 DB_PATH = os.path.join(BASE_DIR, '..', 'usuarios.db')
 
 # Clave secreta segura para HMAC
@@ -20,7 +32,7 @@ SECRET_KEY = 'super_secret_key'
 client_nonces = {}
 NONCE_EXPIRATION_TIME = 300  # Tiempo de expiración en segundos
 MAX_INTENTOS = 5
-BLOQUEO_TIEMPO = 10  # Tiempo de bloqueo en segundos (por ejemplo, 5 minutos)
+BLOQUEO_TIEMPO = 300  # Tiempo de bloqueo en segundos (por ejemplo, 5 minutos)
 
 # -------------------------------
 # Funciones de Base de Datos
@@ -269,8 +281,14 @@ def start_server():
 # Interfaz Gráfica (GUI)
 # -------------------------------
 def log_message(message, address):
-    root.after(0, lambda: text_widget.insert(tk.END, f'{address[0]}:{address[1]} - {message}\n\n'))
+    timestamp = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
+    log_entry = f'[{timestamp}] {address[0]}:{address[1]} - {message}\n\n'
+    root.after(0, lambda: text_widget.insert(tk.END, log_entry))
     root.after(0, text_widget.yview, tk.END)
+    
+    # También guardar en un archivo de log
+    with open('server.log', 'a') as log_file:
+        log_file.write(log_entry)
 
 root = tk.Tk()
 root.title('Servidor de Autenticación')
