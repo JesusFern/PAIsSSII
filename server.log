@@ -1,66 +1,40 @@
-[2025-02-20 13:51:25] 127.0.0.1:55542 - Servidor escuchando en 127.0.0.1:55542
+[2025-02-20 16:41:17] Sistema:Backup - Error al realizar la copia de seguridad: unable to open database file
 
-[2025-02-20 13:51:26] 127.0.0.1:64953 - Conectado con ('127.0.0.1', 64953)
+[2025-02-20 16:41:17] 127.0.0.1:55542 - Servidor escuchando en 127.0.0.1:55542
 
-[2025-02-20 13:51:30] 127.0.0.1:64953 - Mensaje Recivido:LOGIN:admin:admin
+[2025-02-20 16:42:25] Sistema:Backup - Error al realizar la copia de seguridad: unable to open database file
 
-[2025-02-20 13:51:35] 127.0.0.1:64953 - Mensaje Recivido:LOGIN:admin:admin
+[2025-02-20 16:42:25] 127.0.0.1:55542 - Servidor escuchando en 127.0.0.1:55542
 
-[2025-02-20 13:51:36] 127.0.0.1:64953 - Conexión cerrada con ('127.0.0.1', 64953)
+[2025-02-20 16:42:26] 127.0.0.1:51934 - Conectado con ('127.0.0.1', 51934)
 
-[2025-02-20 13:51:44] 127.0.0.1:55542 - Servidor escuchando en 127.0.0.1:55542
+[2025-02-20 16:42:30] 127.0.0.1:51934 - Mensaje Recivido:LOGIN:admin:admin
 
-[2025-02-20 13:51:44] 127.0.0.1:64981 - Conectado con ('127.0.0.1', 64981)
+[2025-02-20 16:42:31] 127.0.0.1:51934 - Mensaje Recivido:LOGOUT:admin
 
-[2025-02-20 13:51:49] 127.0.0.1:64981 - Mensaje Recivido:LOGIN:admin:admin
+[2025-02-20 16:42:35] 127.0.0.1:51934 - Mensaje Recivido:LOGIN:admin:admin
 
-[2025-02-20 13:51:50] 127.0.0.1:64981 - Mensaje Recivido:LOGOUT
+[2025-02-20 16:43:16] 127.0.0.1:51934 - Mensaje Recivido:TRANSACTION:admin:admin:sadfd:150
 
-[2025-02-20 13:51:51] 127.0.0.1:64981 - Conexión cerrada con ('127.0.0.1', 64981)
+[2025-02-20 16:43:21] 127.0.0.1:51934 - Mensaje Recivido:LOGOUT:admin
 
-[2025-02-20 14:27:15] 127.0.0.1:55542 - Servidor escuchando en 127.0.0.1:55542
+[2025-02-20 16:43:24] 127.0.0.1:51934 - Conexión cerrada con ('127.0.0.1', 51934)
 
-[2025-02-20 14:27:16] 127.0.0.1:53207 - Conectado con ('127.0.0.1', 53207)
+[2025-02-20 16:44:21] Sistema:Backup - Error al realizar la copia de seguridad: unable to open database file
 
-[2025-02-20 14:27:21] 127.0.0.1:53207 - Mensaje Recivido:LOGIN:admin:admin
+[2025-02-20 16:44:21] 127.0.0.1:55542 - Servidor escuchando en 127.0.0.1:55542
 
-[2025-02-20 14:27:23] 127.0.0.1:53207 - Mensaje Recivido:LOGOUT
+[2025-02-20 16:44:21] 127.0.0.1:52141 - Conectado con ('127.0.0.1', 52141)
 
-[2025-02-20 14:27:24] 127.0.0.1:53207 - Conexión cerrada con ('127.0.0.1', 53207)
+[2025-02-20 16:44:26] 127.0.0.1:52141 - Mensaje Recivido:LOGIN:admin:admin
 
-[2025-02-20 14:35:10] 127.0.0.1:55542 - Servidor escuchando en 127.0.0.1:55542
+[2025-02-20 16:45:23] 127.0.0.1:52141 - Mensaje Recivido:LOGOUT:admin
 
-[2025-02-20 14:35:10] 127.0.0.1:53882 - Conectado con ('127.0.0.1', 53882)
+[2025-02-20 16:45:26] 127.0.0.1:52141 - Mensaje Recivido:LOGIN:admin:admin
 
-[2025-02-20 14:35:17] 127.0.0.1:53882 - Mensaje Recivido:LOGIN:admin:admin
+[2025-02-20 16:45:28] 127.0.0.1:52141 - Mensaje Recivido:TRANSACTION:admin:admin:asdfdg:150
 
-[2025-02-20 14:35:21] 127.0.0.1:53882 - Mensaje Recivido:TRANSACTION:sadfg:asdfg:sdfg
+[2025-02-20 16:45:29] 127.0.0.1:52141 - Mensaje Recivido:LOGOUT:admin
 
-[2025-02-20 14:35:21] 127.0.0.1:53882 - Mensaje Recivido:LOGOUT
-
-[2025-02-20 14:35:26] 127.0.0.1:53882 - Mensaje Recivido:REGISTER:admin:admin
-
-[2025-02-20 14:35:27] 127.0.0.1:53882 - Mensaje Recivido:LOGIN:admin:admin
-
-[2025-02-20 14:35:28] 127.0.0.1:53882 - Mensaje Recivido:TRANSACTION:sadfg:asdfg:sdfg
-
-[2025-02-20 14:35:34] 127.0.0.1:53882 - Mensaje Recivido:TRANSACTION:sadfg:asdfg:150
-
-[2025-02-20 14:35:35] 127.0.0.1:53882 - Mensaje Recivido:LOGOUT
-
-[2025-02-20 14:35:36] 127.0.0.1:53882 - Conexión cerrada con ('127.0.0.1', 53882)
-
-[2025-02-20 14:37:29] 127.0.0.1:55542 - Servidor escuchando en 127.0.0.1:55542
-
-[2025-02-20 14:37:29] 127.0.0.1:54182 - Conectado con ('127.0.0.1', 54182)
-
-[2025-02-20 14:37:34] 127.0.0.1:54182 - Mensaje Recivido:REGISTER:asd:asd
-
-[2025-02-20 14:37:36] 127.0.0.1:54182 - Mensaje Recivido:LOGIN:asd:asd
-
-[2025-02-20 14:37:41] 127.0.0.1:54182 - Mensaje Recivido:TRANSACTION:asfs:safa:150
-
-[2025-02-20 14:37:42] 127.0.0.1:54182 - Mensaje Recivido:LOGOUT
-
-[2025-02-20 14:37:44] 127.0.0.1:54182 - Conexión cerrada con ('127.0.0.1', 54182)
+[2025-02-20 16:45:30] 127.0.0.1:52141 - Conexión cerrada con ('127.0.0.1', 52141)
 

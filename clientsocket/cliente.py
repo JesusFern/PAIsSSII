@@ -75,15 +75,16 @@ class Cliente:
         self.send_request(request)
         return self.receive_response()
 
-    def transaction(self, origen, destino, cantidad):
+    def transaction(self, username, origen, destino, cantidad):
         """Realizar una transacción entre cuentas."""
-        request = f"TRANSACTION:{origen}:{destino}:{cantidad}"
+        request = f"TRANSACTION:{username}:{origen}:{destino}:{cantidad}"
         self.send_request(request)
         return self.receive_response()
 
-    def logout(self):
+    def logout(self, username):
         """Cerrar sesión del servidor."""
-        self.send_request("LOGOUT")
+        request = f"LOGOUT:{username}"
+        self.send_request(request)
         return self.receive_response()
 
     def close(self):

@@ -130,9 +130,12 @@ class InterfazCliente:
     def logout_user(self):
         """Cerrar sesión a través de la interfaz."""
         if self.logged_in:
-            response = self.cliente.logout()
+            username = self.username_entry.get()
+            response = self.cliente.logout(username)
             if response == "LOGOUT_SUCCESSFUL":
                 self.informar_usuario("Se ha cerrado sesión exitosamente.")
+            elif response == "SESION_EXPIRE": 
+                self.informar_usuario("Sesion Expirada. Vuelva a iniciar sesion")
             else:
                 self.informar_usuario(f"Error al cerrar sesión.\n{response}")
 
@@ -160,14 +163,17 @@ class InterfazCliente:
     def make_transaction(self):
         """Realizar una transacción entre cuentas."""
         if self.logged_in:
+            username = self.username_entry.get()
             from_account = self.from_account_entry.get()
             to_account = self.to_account_entry.get()
             amount = self.amount_entry.get()
 
             if from_account and to_account and amount:
-                response = self.cliente.transaction(from_account, to_account, amount)
+                response = self.cliente.transaction(username, from_account, to_account, amount)
                 if response == "TRANSACTION_SUCCESSFUL":
                     self.informar_usuario("Transferencia realizada con éxito.")
+                elif response == "SESION_EXPIRE": 
+                    self.informar_usuario("Sesion Expirada. Vuelva a iniciar sesion")
                 else:
                     self.informar_usuario(f"Error: {response}")
                 self.cliente.receive_nonce_and_timestamp()

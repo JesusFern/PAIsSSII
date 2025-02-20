@@ -9,12 +9,15 @@ import threading
 import time
 import tkinter as tk
 from tkinter import scrolledtext
+from cryptography.fernet import Fernet
 
 # Configuración de logging
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOG_PATH = os.path.join(BASE_DIR, '..', 'server.log')
 DB_PATH = os.path.join(BASE_DIR, '..', 'usuarios.db')
+AUDIT_LOG_PATH = os.path.join(BASE_DIR, '..', 'audit.log')
 
+# Configuración de logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -25,13 +28,16 @@ logging.basicConfig(
 )
 
 # Clave secreta segura para HMAC
-SECRET_KEY = 'super_secret_key'
-
+SECRET_KEY = 'super_secret_key'  # Consider using a more complex and randomly generated key
+DATABASE_ENCRYPTION_KEY = Fernet.generate_key() # Clave para cifrar la base de datos
 # Diccionario para almacenar nonces con timestamps
 client_nonces = {}
 NONCE_EXPIRATION_TIME = 300  # Tiempo de expiración en segundos
 MAX_INTENTOS = 5
 BLOQUEO_TIEMPO = 300  # Tiempo de bloqueo en segundos (por ejemplo, 5 minutos)
+INTENTOS_EXPIRATION_TIME = 3600  # Tiempo de expiración para intentos fallidos (1 hora)
+active_sessions = {}
+SESSION_TIMEOUT = 10  # Tiempo de inactividad en segundos (5 minutos)
 
 # Asegurar permisos seguros para la base de datos
 if os.path.exists(DB_PATH):
@@ -44,7 +50,16 @@ def get_db_connection():
     conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.execute("PRAGMA foreign_keys = ON;")  # Asegurar integridad referencial
     conn.execute("PRAGMA journal_mode = WAL;")  # Mejor resistencia a fallos
+    conn.execute("PRAGMA busy_timeout = 5000;")  # Esperar si la base de datos está bloqueada
     return conn
+
+def encrypt_data(data):
+    f = Fernet(DATABASE_ENCRYPTION_KEY)
+    return f.encrypt(data.encode()).decode()
+
+def decrypt_data(encrypted_data):
+    f = Fernet(DATABASE_ENCRYPTION_KEY)
+    return f.decrypt(encrypted_data.encode()).decode()
 
 def create_db():
     conn = sqlite3.connect(DB_PATH)
@@ -57,7 +72,8 @@ def create_db():
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         cuenta_origen TEXT,
                         cuenta_destino TEXT,
-                        cantidad REAL)''')
+                        cantidad REAL,
+                        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS intentos_fallidos (
                         username TEXT PRIMARY KEY,
                         intentos INTEGER,
@@ -76,10 +92,15 @@ def register_user(username, password):
 
         salt = secrets.token_hex(16)
         hashed_password = hashlib.sha256((password + salt).encode()).hexdigest()
-        cursor.execute('INSERT INTO usuarios (username, hashed_password, salt) VALUES (?, ?, ?)',
-                       (username, hashed_password, salt))
-        conn.commit()
-        return True
+        try:
+            cursor.execute('INSERT INTO usuarios (username, hashed_password, salt) VALUES (?, ?, ?)',
+                           (username, hashed_password, salt))
+            conn.commit()
+            return True
+        except sqlite3.Error as e:
+            logging.error(f"Database error: {e}")
+            conn.rollback()  # Rollback in case of error
+            return False
 
 def authenticate_user(username, password):
     conn = sqlite3.connect(DB_PATH)
@@ -108,6 +129,7 @@ def authenticate_user(username, password):
             cursor.execute('DELETE FROM intentos_fallidos WHERE username = ?', (username,))
             conn.commit()
             conn.close()
+            active_sessions[username] = time.time()  # Registrar la sesión activa
             return 'LOGIN_SUCCESSFUL'
         else:
             if intentos_data:
@@ -123,8 +145,12 @@ def authenticate_user(username, password):
     return 'USER_NOT_FOUND'
 
 def record_transaction(cuenta_origen, cuenta_destino, cantidad):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cursor = conn.cursor()
+
+    # Verificar si el usuario autenticado es el dueño de la cuenta origen
+    # Esta verificación debe realizarse antes de registrar la transacción
+    # Por simplicidad, aquí asumimos que ya tienes una función para verificar esto
 
     # Convertir la cantidad a string para hashing
     cantidad_str = str(cantidad)
@@ -134,7 +160,7 @@ def record_transaction(cuenta_origen, cuenta_destino, cantidad):
     transaction_hash = hashlib.sha256(transaction_data.encode()).hexdigest()
 
     # Verificar si la transacción ya existe con comparador seguro
-    cursor.execute("SELECT cantidad FROM transacciones WHERE cuenta_origen=? AND cuenta_destino=?", 
+    cursor.execute("SELECT cantidad FROM transacciones WHERE cuenta_origen=? AND cuenta_destino=?",
                    (cuenta_origen, cuenta_destino))
     existing_transaction = cursor.fetchone()
 
@@ -148,11 +174,28 @@ def record_transaction(cuenta_origen, cuenta_destino, cantidad):
             return False  # No registrar transacción duplicada
 
     # Insertar la nueva transacción
-    cursor.execute('INSERT INTO transacciones (cuenta_origen, cuenta_destino, cantidad) VALUES (?, ?, ?)',
-                   (cuenta_origen, cuenta_destino, cantidad))
-    conn.commit()
-    conn.close()
-    return True
+    try:
+        cursor.execute('INSERT INTO transacciones (cuenta_origen, cuenta_destino, cantidad) VALUES (?, ?, ?)',
+                       (cuenta_origen, cuenta_destino, cantidad))
+        conn.commit()
+        log_audit(f"Transacción registrada: Origen={cuenta_origen}, Destino={cuenta_destino}, Cantidad={cantidad}")
+        return True
+    except sqlite3.Error as e:
+        logging.error(f"Database error: {e}")
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
+        
+def check_session_timeout():
+    while True:
+        current_time = time.time()
+        for username, last_activity in list(active_sessions.items()):
+            if current_time - last_activity > SESSION_TIMEOUT:
+                del active_sessions[username]
+                log_audit(f"Sesión de usuario {username} expiró por inactividad.")
+        time.sleep(20)  # Verificar cada minuto
+
 
 # -------------------------------
 # Funciones de Seguridad
@@ -169,7 +212,7 @@ def verify_hmac(message, received_hmac, secret_key):
 
 def verify_nonce_and_timestamp(client_address, nonce, timestamp):
     current_time = time.time()
-    
+
     # Verificar si el timestamp está dentro del tiempo permitido
     if abs(current_time - float(timestamp)) > NONCE_EXPIRATION_TIME:
         return False
@@ -204,6 +247,69 @@ def secure_comparator(value1, value2, secret_key):
     mac1 = hmac.new(secret_key.encode(), value1.encode(), hashlib.sha256).digest()
     mac2 = hmac.new(secret_key.encode(), value2.encode(), hashlib.sha256).digest()
     return secrets.compare_digest(mac1, mac2)
+
+def log_audit(message):
+    timestamp = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
+    log_entry = f'[{timestamp}] - {message}\n'
+    with open(AUDIT_LOG_PATH, 'a') as audit_file:
+        audit_file.write(log_entry)
+
+# -------------------------------
+# Funciones de Limpieza y Mantenimiento
+# -------------------------------
+def clean_old_failed_attempts():
+    """Elimina registros de intentos fallidos que han expirado."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    current_time = time.time()
+    cursor.execute('DELETE FROM intentos_fallidos WHERE ultimo_intento < ?', (current_time - INTENTOS_EXPIRATION_TIME,))
+    conn.commit()
+    conn.close()
+    log_audit("Limpieza de intentos fallidos antiguos realizada.")
+
+def perform_database_integrity_check():
+    """Realiza una comprobación de integridad en la base de datos."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Calcula un hash de la tabla de transacciones
+    cursor.execute("SELECT * FROM transacciones")
+    transactions = cursor.fetchall()
+    data_to_hash = str(transactions).encode('utf-8')
+    calculated_hash = hashlib.sha256(data_to_hash).hexdigest()
+
+    # Compara con el hash almacenado (si existe)
+    cursor.execute("SELECT value FROM metadata WHERE key = 'transactions_hash'")
+    stored_hash = cursor.fetchone()
+
+    if stored_hash:
+        if secure_comparator(calculated_hash, stored_hash[0], SECRET_KEY):
+            log_message("Integridad de la base de datos verificada.", ("Sistema", "Integridad"))
+        else:
+            log_message("¡ALERTA! La integridad de la base de datos ha fallado.", ("Sistema", "Integridad"))
+            log_audit("¡ALERTA! Fallo en la verificación de integridad de la base de datos.")
+    else:
+        log_message("Hash de transacciones no encontrado. Inicializando...", ("Sistema", "Integridad"))
+        cursor.execute("INSERT INTO metadata (key, value) VALUES ('transactions_hash', ?)", (calculated_hash,))
+        conn.commit()
+
+    conn.close()
+
+def backup_database():
+    """Realiza una copia de seguridad de la base de datos."""
+    backup_path = os.path.join(BASE_DIR, '..', 'backup', f'usuarios_backup_{time.strftime("%Y%m%d%H%M%S")}.db')
+    try:
+        conn = get_db_connection()
+        backup_conn = sqlite3.connect(backup_path)
+        with backup_conn:
+            conn.backup(backup_conn)
+        conn.close()
+        backup_conn.close()
+        log_message(f"Base de datos respaldada en {backup_path}", ("Sistema", "Backup"))
+        log_audit(f"Base de datos respaldada en {backup_path}")
+    except sqlite3.Error as e:
+        log_message(f"Error al realizar la copia de seguridad: {e}", ("Sistema", "Backup"))
+        log_audit(f"Error al realizar la copia de seguridad: {e}")
 
 # -------------------------------
 # Servidor y Gestión de Clientes
@@ -249,19 +355,35 @@ def process_client_command(connection, address, message):
         else:
             response = 'LOGIN_FAILED'
     elif message.startswith('TRANSACTION:'):
-        parts = message.split(':')
-        if len(parts) == 4:
-            _, origen, destino, cantidad = parts
-            try:
-                cantidad = float(cantidad)
-                record_transaction(origen, destino, cantidad)
-                response = 'TRANSACTION_SUCCESSFUL'
-            except ValueError:
-                response = 'TRANSACTION_FAILED: Invalid amount'
+        _, username, _, _, _ = message.split(':') #CONSEGUIR USUARIO
+        if username and username in active_sessions:  
+            parts = message.split(':')
+            if len(parts) == 5:
+                _, _, origen, destino, cantidad = parts
+                try:
+                    cantidad = float(cantidad)
+                    if origen == username: # Verificar que el usuario es el dueño de la cuenta origen
+                        if record_transaction(origen, destino, cantidad):
+                            response = 'TRANSACTION_SUCCESSFUL'
+                        else:
+                            response = 'TRANSACTION_FAILED'
+                    else:
+                        response = 'TRANSACTION_FAILED'
+                except ValueError:
+                    response = 'TRANSACTION_FAILED'
+            else:
+                response = 'TRANSACTION_FAILED'
         else:
-            response = 'TRANSACTION_FAILED: Invalid format'
-    elif message == 'LOGOUT':
-        response = 'LOGOUT_SUCCESSFUL'
+            response = 'SESION_EXPIRE'
+    elif message.startswith('LOGOUT:'):
+        _, username = message.split(':')
+        if username:
+            if username in active_sessions:
+                del active_sessions[username]
+                response = 'LOGOUT_SUCCESSFUL'
+                log_audit(f"Usuario {username} cerró sesión.")
+            else:
+                response = 'SESION_EXPIRE' # Usuario no logueado
     else:
         response = 'Unknown command'
     connection.sendall(response.encode())
@@ -288,7 +410,7 @@ def log_message(message, address):
     log_entry = f'[{timestamp}] {address[0]}:{address[1]} - {message}\n\n'
     root.after(0, lambda: text_widget.insert(tk.END, log_entry))
     root.after(0, text_widget.yview, tk.END)
-    
+
     # También guardar en un archivo de log
     with open('server.log', 'a') as log_file:
         log_file.write(log_entry)
@@ -303,5 +425,17 @@ threading.Thread(target=start_server, daemon=True).start()
 
 # Iniciar la limpieza de nonces en un hilo separado
 threading.Thread(target=clean_old_nonces, daemon=True).start()
+
+# Iniciar la limpieza de intentos fallidos antiguos
+threading.Thread(target=clean_old_failed_attempts, daemon=True).start()
+
+# Iniciar la tarea de verificación de integridad de la base de datos
+threading.Thread(target=perform_database_integrity_check, daemon=True).start()
+
+# Iniciar la tarea de respaldo de la base de datos
+threading.Thread(target=backup_database, daemon=True).start()
+
+# Iniciar la verificación de timeouts de sesión
+threading.Thread(target=check_session_timeout, daemon=True).start()
 
 root.mainloop()
