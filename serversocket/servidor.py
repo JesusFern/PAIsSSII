@@ -13,6 +13,8 @@ from tkinter import scrolledtext
 # Configuración de logging
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOG_PATH = os.path.join(BASE_DIR, '..', 'server.log')
+DB_PATH = os.path.join(BASE_DIR, '..', 'usuarios.db')
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -21,9 +23,6 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
-
-# Configuración de la base de datos
-DB_PATH = os.path.join(BASE_DIR, '..', 'usuarios.db')
 
 # Clave secreta segura para HMAC
 SECRET_KEY = 'super_secret_key'
@@ -34,9 +33,19 @@ NONCE_EXPIRATION_TIME = 300  # Tiempo de expiración en segundos
 MAX_INTENTOS = 5
 BLOQUEO_TIEMPO = 300  # Tiempo de bloqueo en segundos (por ejemplo, 5 minutos)
 
+# Asegurar permisos seguros para la base de datos
+if os.path.exists(DB_PATH):
+    os.chmod(DB_PATH, 0o600)  # Solo lectura/escritura para el usuario propietario
+
 # -------------------------------
 # Funciones de Base de Datos
 # -------------------------------
+def get_db_connection():
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.execute("PRAGMA foreign_keys = ON;")  # Asegurar integridad referencial
+    conn.execute("PRAGMA journal_mode = WAL;")  # Mejor resistencia a fallos
+    return conn
+
 def create_db():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -57,26 +66,20 @@ def create_db():
     conn.close()
 
 def register_user(username, password):
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('SELECT hashed_password, salt FROM usuarios WHERE username = ?', (username,))
-    existing_user = cursor.fetchone()
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT hashed_password, salt FROM usuarios WHERE username = ?', (username,))
+        existing_user = cursor.fetchone()
 
-    if existing_user:
-        stored_password, salt = existing_user
-        computed_password = hashlib.sha256((password + salt).encode()).hexdigest()
-        if secure_comparator(computed_password, stored_password, SECRET_KEY):
-            conn.close()
-            return False  # No permitir la misma contraseña
-        return False  # Usuario ya existe con otra contraseña
+        if existing_user:
+            return False  # Usuario ya existe
 
-    salt = secrets.token_hex(16)
-    hashed_password = hashlib.sha256((password + salt).encode()).hexdigest()
-    cursor.execute('INSERT INTO usuarios (username, hashed_password, salt) VALUES (?, ?, ?)',
-                   (username, hashed_password, salt))
-    conn.commit()
-    conn.close()
-    return True
+        salt = secrets.token_hex(16)
+        hashed_password = hashlib.sha256((password + salt).encode()).hexdigest()
+        cursor.execute('INSERT INTO usuarios (username, hashed_password, salt) VALUES (?, ?, ?)',
+                       (username, hashed_password, salt))
+        conn.commit()
+        return True
 
 def authenticate_user(username, password):
     conn = sqlite3.connect(DB_PATH)
