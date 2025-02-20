@@ -102,7 +102,7 @@ def register_user(username, password):
         if cursor.execute('SELECT 1 FROM usuarios WHERE username = ?', (username,)).fetchone():
             return False
         
-        salt = secrets.token_hex(16)
+        salt = secrets.token_hex(32)
         hashed_password = hashlib.sha256((password + salt).encode()).hexdigest()
         try:
             cursor.execute('INSERT INTO usuarios (username, hashed_password, salt) VALUES (?, ?, ?)',
