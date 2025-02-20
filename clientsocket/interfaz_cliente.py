@@ -172,6 +172,8 @@ class InterfazCliente:
                 response = self.cliente.transaction(username, from_account, to_account, amount)
                 if response == "TRANSACTION_SUCCESSFUL":
                     self.informar_usuario("Transferencia realizada con éxito.")
+                elif response == "TRANSACTION_FAILED": 
+                    self.informar_usuario("Error al hacer la transferencia")    
                 elif response == "SESION_EXPIRE": 
                     self.informar_usuario("Sesion Expirada. Vuelva a iniciar sesion")
                 else:
