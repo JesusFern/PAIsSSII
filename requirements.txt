@@ -1,5 +1,1 @@
-bcrypt
-sqlite3
-hmac
-hashlib
 cryptography

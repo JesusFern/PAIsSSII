@@ -13,9 +13,9 @@ from cryptography.fernet import Fernet
 
 # Configuración de logging
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-LOG_PATH = os.path.join(BASE_DIR, '..', 'server.log')
-DB_PATH = os.path.join(BASE_DIR, '..', 'usuarios.db')
-AUDIT_LOG_PATH = os.path.join(BASE_DIR, '..', 'audit.log')
+LOG_PATH = os.path.join(BASE_DIR, '..', 'logs', 'server.log')
+DB_PATH = os.path.join(BASE_DIR, '..', 'bd y claves', 'usuarios.db')
+AUDIT_LOG_PATH = os.path.join(BASE_DIR, '..', 'logs', 'audit.log')
 
 # Configuración de logging
 logging.basicConfig(
