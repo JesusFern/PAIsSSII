@@ -1,30 +1,45 @@
 import hmac
 import hashlib
+import os
+import secrets
 import socket
 import tkinter as tk
 from tkinter import scrolledtext, messagebox
 from interfaz_cliente import InterfazCliente
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_DIR = os.path.join(BASE_DIR, '..', 'bd y claves')
 
-# Include the secret key in the server (make sure to keep it safe)
-secret_key = 'super_secret_key'
+SECRET_KEY_PATH = os.path.join(DB_DIR, "secret.key")
+
+def get_secret_key():
+    if os.path.exists(SECRET_KEY_PATH):
+        with open(SECRET_KEY_PATH, "rb") as key_file:
+            return key_file.read().strip()
+    else:
+        secret_key = secrets.token_hex(32)
+        with open(SECRET_KEY_PATH, "wb") as key_file:
+            key_file.write(secret_key.encode())
+        return secret_key
+    
+SECRET_KEY = get_secret_key()    
 
 def generate_hmac(message, secret_key):
     """Generar un HMAC dado un mensaje y una clave secreta."""
-    return hmac.new(secret_key.encode(), message.encode(), hashlib.sha256).hexdigest()
+    return hmac.new(secret_key, message.encode(), hashlib.sha256).hexdigest()
 
 def hmac_decorator(func):
     """Decorador para añadir HMAC a las solicitudes."""
     def wrapper(self, request):
         request_with_nonce_timestamp = f"{self.nonce}:{self.timestamp}:{request}"
-        hmac_value = generate_hmac(request_with_nonce_timestamp, secret_key)
+        hmac_value = generate_hmac(request_with_nonce_timestamp, SECRET_KEY)
         request_with_hmac = f"{hmac_value}:{request_with_nonce_timestamp}"
         self.socket.sendall(request_with_hmac.encode('utf-8'))
         return func(self, request)
     return wrapper
 
 class Cliente:
-    def __init__(self, host='127.0.0.1', port=55542):
+    def __init__(self, host='127.0.0.1', port=65432):
         self.host = host
         self.port = port
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

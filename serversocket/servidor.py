@@ -9,6 +9,7 @@ import threading
 import time
 import tkinter as tk
 from tkinter import scrolledtext
+import cryptography
 from cryptography.fernet import Fernet
 
 # Configuración de directorios y rutas
@@ -16,6 +17,8 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOG_DIR = os.path.join(BASE_DIR, '..', 'logs')
 DB_DIR = os.path.join(BASE_DIR, '..', 'bd y claves')
 
+SECRET_KEY_PATH = os.path.join(DB_DIR, "secret.key")
+DB_KEY_PATH = os.path.join(DB_DIR, "db_key.key")
 LOG_PATH = os.path.join(LOG_DIR, 'server.log')
 DB_PATH = os.path.join(DB_DIR, 'usuarios.db')
 AUDIT_LOG_PATH = os.path.join(LOG_DIR, 'audit.log')
@@ -34,10 +37,35 @@ logging.basicConfig(
     ]
 )
 
-# Configuración de seguridad
-SECRET_KEY = 'super_secret_key'  # Considerar usar una clave más compleja y generada aleatoriamente
-DATABASE_ENCRYPTION_KEY = Fernet.generate_key()
+# Funciones para obtener o generar las claves
+def get_database_key():
+    if os.path.exists(DB_KEY_PATH):
+        with open(DB_KEY_PATH, "rb") as key_file:
+            return key_file.read().strip()
+    else:
+        key = Fernet.generate_key()
+        with open(DB_KEY_PATH, "wb") as key_file:
+            key_file.write(key)
+        return key
 
+def get_secret_key():
+    if os.path.exists(SECRET_KEY_PATH):
+        with open(SECRET_KEY_PATH, "rb") as key_file:
+            return key_file.read().strip()
+    else:
+        secret_key = secrets.token_bytes(32)  # Cambiado de token_hex a token_bytes
+        with open(SECRET_KEY_PATH, "wb") as key_file:
+            key_file.write(secret_key)
+        return secret_key
+
+SECRET_KEY = get_secret_key()
+DATABASE_ENCRYPTION_KEY = get_database_key()
+FERNET_CIPHER = Fernet(DATABASE_ENCRYPTION_KEY)
+
+# Asegurar permisos de la base de datos
+if os.path.exists(DB_PATH):
+    os.chmod(DB_PATH, 0o600)  # Solo lectura/escritura para el usuario propietario
+    
 # Configuración de tiempos y límites
 NONCE_EXPIRATION_TIME = 180  # Tiempo de expiración en segundos
 MAX_INTENTOS = 5
@@ -47,11 +75,7 @@ SESSION_TIMEOUT = 300  # Tiempo de inactividad en segundos
 
 # Estructuras de datos para gestión de sesiones y seguridad
 client_nonces = {}
-active_sessions = {}
-
-# Asegurar permisos de la base de datos
-if os.path.exists(DB_PATH):
-    os.chmod(DB_PATH, 0o600)  # Solo lectura/escritura para el usuario propietario
+active_sessions = {}    
 
 # -------------------------------
 # Funciones de Base de Datos
@@ -68,12 +92,17 @@ def get_db_connection():
         return None
 
 def encrypt_data(data):
-    f = Fernet(DATABASE_ENCRYPTION_KEY)
-    return f.encrypt(data.encode()).decode()
+    if isinstance(data, str) and not data.startswith('gAAAAA'):  # Prefijo común de datos encriptados por Fernet
+        return FERNET_CIPHER.encrypt(data.encode()).decode()
+    return data
 
 def decrypt_data(encrypted_data):
-    f = Fernet(DATABASE_ENCRYPTION_KEY)
-    return f.decrypt(encrypted_data.encode()).decode()
+    if isinstance(encrypted_data, str) and encrypted_data.startswith('gAAAAA'):
+        try:
+            return FERNET_CIPHER.decrypt(encrypted_data.encode()).decode()
+        except cryptography.fernet.InvalidToken:
+            return encrypted_data
+    return encrypted_data
 
 def create_db():
     conn = sqlite3.connect(DB_PATH)
@@ -86,7 +115,7 @@ def create_db():
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         cuenta_origen TEXT,
                         cuenta_destino TEXT,
-                        cantidad REAL,
+                        cantidad TEXT,
                         hash TEXT,
                         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS intentos_fallidos (
@@ -104,15 +133,17 @@ def register_user(username, password):
         
         salt = secrets.token_hex(32)
         hashed_password = hashlib.sha256((password + salt).encode()).hexdigest()
+        encrypted_password = encrypt_data(hashed_password)
+        encrypted_salt = encrypt_data(salt)
         try:
             cursor.execute('INSERT INTO usuarios (username, hashed_password, salt) VALUES (?, ?, ?)',
-                           (username, hashed_password, salt))
+                           (username, encrypted_password, encrypted_salt))
             conn.commit()
             return True
         except sqlite3.Error as e:
             logging.error(f"Database error: {e}")
             return False
-        
+
 def authenticate_user(username, password):
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
@@ -126,7 +157,13 @@ def authenticate_user(username, password):
         if not stored_data:
             return 'LOGIN_FAILED'
 
-        if secure_comparator(hashlib.sha256((password + stored_data[1]).encode()).hexdigest(), stored_data[0], SECRET_KEY):
+        stored_password, stored_salt = stored_data
+        decrypted_password = decrypt_data(stored_password)
+        decrypted_salt = decrypt_data(stored_salt)
+
+        hashed_input_password = hashlib.sha256((password + decrypted_salt).encode()).hexdigest()
+
+        if secure_comparator(hashed_input_password, decrypted_password, SECRET_KEY):
             cursor.execute('DELETE FROM intentos_fallidos WHERE username = ?', (username,))
             active_sessions[username] = current_time
             return 'LOGIN_SUCCESSFUL'
@@ -139,28 +176,35 @@ def record_transaction(cuenta_origen, cuenta_destino, cantidad):
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Convertir la cantidad a string para hashing
+    # Convertir la cantidad a string para hashing y encriptación
     cantidad_str = str(cantidad)
 
     # Generar un hash de la transacción (SHA-256)
     transaction_data = f"{cuenta_origen}:{cuenta_destino}:{cantidad_str}"
     transaction_hash = hashlib.sha256(transaction_data.encode()).hexdigest()
 
+    # Encriptar datos sensibles
+    encrypted_origen = encrypt_data(cuenta_origen)
+    encrypted_destino = encrypt_data(cuenta_destino)
+    encrypted_cantidad = encrypt_data(cantidad_str)
+    encrypted_hash = encrypt_data(transaction_hash)
+
     # Verificar si la transacción ya existe con comparador seguro
     cursor.execute("SELECT cantidad, hash FROM transacciones WHERE cuenta_origen=? AND cuenta_destino=?",
-                   (cuenta_origen, cuenta_destino))
+                   (encrypted_origen, encrypted_destino))
     existing_transaction = cursor.fetchone()
 
     if existing_transaction:
         stored_amount, stored_hash = existing_transaction
-        if secure_comparator(transaction_hash, stored_hash, SECRET_KEY):
+        decrypted_stored_hash = decrypt_data(stored_hash)
+        if secure_comparator(transaction_hash, decrypted_stored_hash, SECRET_KEY):
             conn.close()
             return False  # No registrar transacción duplicada
 
     # Insertar la nueva transacción
     try:
         cursor.execute('INSERT INTO transacciones (cuenta_origen, cuenta_destino, cantidad, hash) VALUES (?, ?, ?, ?)',
-                       (cuenta_origen, cuenta_destino, cantidad, transaction_hash))
+                       (encrypted_origen, encrypted_destino, encrypted_cantidad, encrypted_hash))
         conn.commit()
         log_audit(f"Transacción registrada: Origen={cuenta_origen}, Destino={cuenta_destino}, Cantidad={cantidad}")
         
@@ -182,7 +226,9 @@ def generate_nonce():
     return secrets.token_hex(16)
 
 def generate_hmac(message, secret_key):
-    return hmac.new(secret_key.encode(), message.encode(), hashlib.sha256).hexdigest()
+    if isinstance(secret_key, str):
+        secret_key = secret_key.encode()
+    return hmac.new(secret_key, message.encode(), hashlib.sha256).hexdigest()
 
 def verify_hmac(message, received_hmac, secret_key):
     expected_hmac = generate_hmac(message, secret_key)
@@ -207,8 +253,17 @@ def clean_old_nonces():
         time.sleep(5)
 
 def secure_comparator(value1, value2, secret_key):
-    mac1 = hmac.new(secret_key.encode(), value1.encode(), hashlib.sha256).digest()
-    mac2 = hmac.new(secret_key.encode(), value2.encode(), hashlib.sha256).digest()
+    if isinstance(secret_key, str):
+        secret_key = secret_key.encode()
+    
+    if isinstance(value1, str):
+        value1 = value1.encode()
+    
+    if isinstance(value2, str):
+        value2 = value2.encode()
+    
+    mac1 = hmac.new(secret_key, value1, hashlib.sha256).digest()
+    mac2 = hmac.new(secret_key, value2, hashlib.sha256).digest()
     return secrets.compare_digest(mac1, mac2)
 
 def log_audit(message):
@@ -231,19 +286,21 @@ def perform_database_integrity_check():
     
     try:
         # Obtener todas las transacciones
-        cursor.execute("SELECT id, cuenta_origen, cuenta_destino, cantidad FROM transacciones")
+        cursor.execute("SELECT id, cuenta_origen, cuenta_destino, cantidad, hash FROM transacciones")
         transactions = cursor.fetchall()
         
         for transaction in transactions:
-            id, cuenta_origen, cuenta_destino, cantidad = transaction
+            id, encrypted_origen, encrypted_destino, encrypted_cantidad, encrypted_hash = transaction
+            
+            # Desencriptar los datos
+            cuenta_origen = decrypt_data(encrypted_origen)
+            cuenta_destino = decrypt_data(encrypted_destino)
+            cantidad = decrypt_data(encrypted_cantidad)
+            stored_hash = decrypt_data(encrypted_hash)
             
             # Recalcular el hash de la transacción
-            transaction_data = f"{cuenta_origen}:{cuenta_destino}:{str(cantidad)}"
+            transaction_data = f"{cuenta_origen}:{cuenta_destino}:{cantidad}"
             calculated_hash = hashlib.sha256(transaction_data.encode()).hexdigest()
-            
-            # Obtener el hash almacenado en la base de datos
-            cursor.execute("SELECT hash FROM transacciones WHERE id = ?", (id,))
-            stored_hash = cursor.fetchone()[0]
             
             # Comparar los hashes de manera segura
             if not secure_comparator(calculated_hash, stored_hash, SECRET_KEY):
@@ -348,7 +405,7 @@ def process_client_command(connection, address, message):
     connection.sendall(response.encode())
 
 def start_server():
-    host, port = '127.0.0.1', 55542
+    host, port = '127.0.0.1', 65432
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
         server_socket.bind((host, port))
         server_socket.listen(5)
