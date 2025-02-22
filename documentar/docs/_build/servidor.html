@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>servidor module &#8212; Your Project 1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
+    <link rel="stylesheet" type="text/css" href="_static/custom.css?v=5ac185f2" />
+    <script src="_static/documentation_options.js?v=f2a433a1"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="interfaz_cliente module" href="interfaz_cliente.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="module-servidor">
+<span id="servidor-module"></span><h1>servidor module<a class="headerlink" href="#module-servidor" title="Link to this heading">¶</a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="servidor.authenticate_user">
+<span class="sig-prename descclassname"><span class="pre">servidor.</span></span><span class="sig-name descname"><span class="pre">authenticate_user</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">username</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">password</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/servidor.html#authenticate_user"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#servidor.authenticate_user" title="Link to this definition">¶</a></dt>
+<dd><p>Autentica a un usuario utilizando su nombre de usuario y contraseña.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>username (str): Nombre de usuario.
+password (str): Contraseña del usuario.</p>
+</dd>
+<dt>Returns:</dt><dd><p>str: Resultado de la autenticación (‘LOGIN_SUCCESSFUL’, ‘LOGIN_FAILED’, ‘ACCOUNT_BLOCKED’).</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="servidor.backup_database">
+<span class="sig-prename descclassname"><span class="pre">servidor.</span></span><span class="sig-name descname"><span class="pre">backup_database</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/servidor.html#backup_database"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#servidor.backup_database" title="Link to this definition">¶</a></dt>
+<dd><p>Realiza una copia de seguridad de la base de datos.</p>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>sqlite3.Error: Si ocurre un error durante la copia de seguridad.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="servidor.check_session_timeout">
+<span class="sig-prename descclassname"><span class="pre">servidor.</span></span><span class="sig-name descname"><span class="pre">check_session_timeout</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/servidor.html#check_session_timeout"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#servidor.check_session_timeout" title="Link to this definition">¶</a></dt>
+<dd><p>Verifica el tiempo de inactividad de las sesiones y cierra aquellas que han expirado.</p>
+<p>Esta función se ejecuta en un bucle continuo.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="servidor.clean_old_failed_attempts">
+<span class="sig-prename descclassname"><span class="pre">servidor.</span></span><span class="sig-name descname"><span class="pre">clean_old_failed_attempts</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/servidor.html#clean_old_failed_attempts"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#servidor.clean_old_failed_attempts" title="Link to this definition">¶</a></dt>
+<dd><p>Limpia los registros de intentos fallidos antiguos de la base de datos.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="servidor.clean_old_nonces">
+<span class="sig-prename descclassname"><span class="pre">servidor.</span></span><span class="sig-name descname"><span class="pre">clean_old_nonces</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/servidor.html#clean_old_nonces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#servidor.clean_old_nonces" title="Link to this definition">¶</a></dt>
+<dd><p>Limpia los nonces antiguos de la memoria.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="servidor.compute_shared_key">
+<span class="sig-prename descclassname"><span class="pre">servidor.</span></span><span class="sig-name descname"><span class="pre">compute_shared_key</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">private_key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">peer_public_key</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/servidor.html#compute_shared_key"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#servidor.compute_shared_key" title="Link to this definition">¶</a></dt>
+<dd><p>Calcula una clave compartida utilizando la clave privada y la clave pública de Diffie-Hellman del par.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>private_key (dh.PrivateKey): Clave privada.
+peer_public_key (dh.PublicKey): Clave pública del par.</p>
+</dd>
+<dt>Returns:</dt><dd><p>bytes: Clave compartida.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="servidor.create_db">
+<span class="sig-prename descclassname"><span class="pre">servidor.</span></span><span class="sig-name descname"><span class="pre">create_db</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/servidor.html#create_db"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#servidor.create_db" title="Link to this definition">¶</a></dt>
+<dd><p>Crea la base de datos y las tablas necesarias si no existen.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="servidor.decrypt_data">
+<span class="sig-prename descclassname"><span class="pre">servidor.</span></span><span class="sig-name descname"><span class="pre">decrypt_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">encrypted_data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/servidor.html#decrypt_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#servidor.decrypt_data" title="Link to this definition">¶</a></dt>
+<dd><p>Desencripta los datos utilizando Fernet.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>encrypted_data (str): Datos encriptados.</p>
+</dd>
+<dt>Returns:</dt><dd><p>str: Datos desencriptados.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="servidor.deserialize_public_key">
+<span class="sig-prename descclassname"><span class="pre">servidor.</span></span><span class="sig-name descname"><span class="pre">deserialize_public_key</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">serialized_key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parameters</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/servidor.html#deserialize_public_key"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#servidor.deserialize_public_key" title="Link to this definition">¶</a></dt>
+<dd><p>Deserializa una clave pública desde formato PEM.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>serialized_key (bytes): Clave pública serializada.
+parameters (dh.Parameters): Parámetros de Diffie-Hellman.</p>
+</dd>
+<dt>Returns:</dt><dd><p>dh.PublicKey: Clave pública deserializada.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="servidor.encrypt_data">
+<span class="sig-prename descclassname"><span class="pre">servidor.</span></span><span class="sig-name descname"><span class="pre">encrypt_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/servidor.html#encrypt_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#servidor.encrypt_data" title="Link to this definition">¶</a></dt>
+<dd><p>Encripta los datos utilizando Fernet.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>data (str): Datos a encriptar.</p>
+</dd>
+<dt>Returns:</dt><dd><p>str: Datos encriptados.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="servidor.generate_dh_key">
+<span class="sig-prename descclassname"><span class="pre">servidor.</span></span><span class="sig-name descname"><span class="pre">generate_dh_key</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parameters</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/servidor.html#generate_dh_key"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#servidor.generate_dh_key" title="Link to this definition">¶</a></dt>
+<dd><p>Genera una clave privada y pública utilizando los parámetros de Diffie-Hellman.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>parameters (dh.Parameters): Parámetros de Diffie-Hellman.</p>
+</dd>
+<dt>Returns:</dt><dd><p>tuple: Par de claves privadas y públicas.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="servidor.generate_dh_parameters">
+<span class="sig-prename descclassname"><span class="pre">servidor.</span></span><span class="sig-name descname"><span class="pre">generate_dh_parameters</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/servidor.html#generate_dh_parameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#servidor.generate_dh_parameters" title="Link to this definition">¶</a></dt>
+<dd><p>Genera parámetros de Diffie-Hellman.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>dh.Parameters: Parámetros de Diffie-Hellman.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="servidor.generate_hmac">
+<span class="sig-prename descclassname"><span class="pre">servidor.</span></span><span class="sig-name descname"><span class="pre">generate_hmac</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">secret_key</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/servidor.html#generate_hmac"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#servidor.generate_hmac" title="Link to this definition">¶</a></dt>
+<dd><p>Genera un HMAC para un mensaje dado utilizando una clave secreta.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>message (str): El mensaje para el cual se generará el HMAC.
+secret_key (str | bytes): La clave secreta utilizada para generar el HMAC.</p>
+</dd>
+<dt>Returns:</dt><dd><p>str: El HMAC generado en formato hexadecimal.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="servidor.generate_nonce">
+<span class="sig-prename descclassname"><span class="pre">servidor.</span></span><span class="sig-name descname"><span class="pre">generate_nonce</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/servidor.html#generate_nonce"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#servidor.generate_nonce" title="Link to this definition">¶</a></dt>
+<dd><p>Genera un número único (nonce) para la autenticación.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>str: Nonce generado.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="servidor.get_database_key">
+<span class="sig-prename descclassname"><span class="pre">servidor.</span></span><span class="sig-name descname"><span class="pre">get_database_key</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/servidor.html#get_database_key"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#servidor.get_database_key" title="Link to this definition">¶</a></dt>
+<dd><p>Obtiene la clave de cifrado de la base de datos. Si no existe, genera una nueva clave y la guarda en un archivo.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>bytes: Clave de cifrado para la base de datos.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="servidor.get_db_connection">
+<span class="sig-prename descclassname"><span class="pre">servidor.</span></span><span class="sig-name descname"><span class="pre">get_db_connection</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/servidor.html#get_db_connection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#servidor.get_db_connection" title="Link to this definition">¶</a></dt>
+<dd><p>Obtiene una conexión a la base de datos SQLite.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>sqlite3.Connection: Conexión a la base de datos.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="servidor.handle_client">
+<span class="sig-prename descclassname"><span class="pre">servidor.</span></span><span class="sig-name descname"><span class="pre">handle_client</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">connection</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">address</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/servidor.html#handle_client"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#servidor.handle_client" title="Link to this definition">¶</a></dt>
+<dd><p>Maneja la conexión de un cliente, incluyendo el intercambio de claves DH y la autenticación de mensajes.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>connection (socket.socket): La conexión del cliente.
+address (tuple): La dirección del cliente.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="servidor.log_audit">
+<span class="sig-prename descclassname"><span class="pre">servidor.</span></span><span class="sig-name descname"><span class="pre">log_audit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/servidor.html#log_audit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#servidor.log_audit" title="Link to this definition">¶</a></dt>
+<dd><p>Registra un mensaje de auditoría en el archivo de log de auditoría.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>message (str): El mensaje a registrar.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="servidor.log_message">
+<span class="sig-prename descclassname"><span class="pre">servidor.</span></span><span class="sig-name descname"><span class="pre">log_message</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">address</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/servidor.html#log_message"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#servidor.log_message" title="Link to this definition">¶</a></dt>
+<dd><p>Registra un mensaje en la interfaz gráfica y en el archivo de log.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>message (str): Mensaje a registrar.
+address (tuple): Dirección del cliente (IP, puerto).</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="servidor.perform_database_integrity_check">
+<span class="sig-prename descclassname"><span class="pre">servidor.</span></span><span class="sig-name descname"><span class="pre">perform_database_integrity_check</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/servidor.html#perform_database_integrity_check"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#servidor.perform_database_integrity_check" title="Link to this definition">¶</a></dt>
+<dd><p>Realiza una verificación de integridad de la base de datos para asegurar que los datos no han sido comprometidos.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>bool: True si la integridad de la base de datos es válida, False en caso contrario.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="servidor.process_client_command">
+<span class="sig-prename descclassname"><span class="pre">servidor.</span></span><span class="sig-name descname"><span class="pre">process_client_command</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">connection</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">address</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">message</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/servidor.html#process_client_command"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#servidor.process_client_command" title="Link to this definition">¶</a></dt>
+<dd><p>Procesa los comandos recibidos del cliente.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>connection (socket.socket): Conexión con el cliente.
+address (tuple): Dirección del cliente (IP, puerto).
+message (str): Mensaje recibido del cliente.</p>
+</dd>
+</dl>
+<p>El mensaje se espera en el formato ‘COMANDO:PARAMETRO1:PARAMETRO2:…’</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="servidor.record_transaction">
+<span class="sig-prename descclassname"><span class="pre">servidor.</span></span><span class="sig-name descname"><span class="pre">record_transaction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cuenta_origen</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cuenta_destino</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cantidad</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/servidor.html#record_transaction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#servidor.record_transaction" title="Link to this definition">¶</a></dt>
+<dd><p>Registra una transacción en la base de datos.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>cuenta_origen (str): Cuenta de origen.
+cuenta_destino (str): Cuenta de destino.
+cantidad (float): Cantidad transferida.</p>
+</dd>
+<dt>Returns:</dt><dd><p>bool: True si la transacción fue registrada correctamente, False en caso contrario.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="servidor.register_user">
+<span class="sig-prename descclassname"><span class="pre">servidor.</span></span><span class="sig-name descname"><span class="pre">register_user</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">username</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">password</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/servidor.html#register_user"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#servidor.register_user" title="Link to this definition">¶</a></dt>
+<dd><p>Registra un nuevo usuario en la base de datos.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>username (str): Nombre de usuario.
+password (str): Contraseña del usuario.</p>
+</dd>
+<dt>Returns:</dt><dd><p>bool: True si el registro fue exitoso, False en caso contrario.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="servidor.scheduled_backup">
+<span class="sig-prename descclassname"><span class="pre">servidor.</span></span><span class="sig-name descname"><span class="pre">scheduled_backup</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/servidor.html#scheduled_backup"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#servidor.scheduled_backup" title="Link to this definition">¶</a></dt>
+<dd><p>Realiza una copia de seguridad de la base de datos de forma programada cada 24 horas.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="servidor.secure_comparator">
+<span class="sig-prename descclassname"><span class="pre">servidor.</span></span><span class="sig-name descname"><span class="pre">secure_comparator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">secret_key</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/servidor.html#secure_comparator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#servidor.secure_comparator" title="Link to this definition">¶</a></dt>
+<dd><p>Compara dos valores de forma segura utilizando una clave secreta.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>value1 (str | bytes): Primer valor.
+value2 (str | bytes): Segundo valor.
+secret_key (str | bytes): La clave secreta utilizada para la comparación.</p>
+</dd>
+<dt>Returns:</dt><dd><p>bool: True si los valores coinciden, False en caso contrario.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="servidor.serialize_public_key">
+<span class="sig-prename descclassname"><span class="pre">servidor.</span></span><span class="sig-name descname"><span class="pre">serialize_public_key</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">public_key</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/servidor.html#serialize_public_key"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#servidor.serialize_public_key" title="Link to this definition">¶</a></dt>
+<dd><p>Serializa una clave pública a formato PEM.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>public_key (dh.PublicKey): Clave pública a serializar.</p>
+</dd>
+<dt>Returns:</dt><dd><p>bytes: Clave pública en formato PEM.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="servidor.start_server">
+<span class="sig-prename descclassname"><span class="pre">servidor.</span></span><span class="sig-name descname"><span class="pre">start_server</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/servidor.html#start_server"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#servidor.start_server" title="Link to this definition">¶</a></dt>
+<dd><p>Inicia el servidor y maneja las conexiones entrantes.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="servidor.verify_hmac">
+<span class="sig-prename descclassname"><span class="pre">servidor.</span></span><span class="sig-name descname"><span class="pre">verify_hmac</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">received_hmac</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">secret_key</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/servidor.html#verify_hmac"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#servidor.verify_hmac" title="Link to this definition">¶</a></dt>
+<dd><p>Verifica que el HMAC recibido coincida con el HMAC esperado.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>message (str): El mensaje original.
+received_hmac (str): El HMAC recibido.
+secret_key (str | bytes): La clave secreta utilizada para generar el HMAC.</p>
+</dd>
+<dt>Returns:</dt><dd><p>bool: True si el HMAC es válido, False en caso contrario.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="servidor.verify_nonce_and_timestamp">
+<span class="sig-prename descclassname"><span class="pre">servidor.</span></span><span class="sig-name descname"><span class="pre">verify_nonce_and_timestamp</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">client_address</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nonce</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamp</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/servidor.html#verify_nonce_and_timestamp"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#servidor.verify_nonce_and_timestamp" title="Link to this definition">¶</a></dt>
+<dd><p>Verifica la validez de un nonce y una marca de tiempo.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>client_address (str): Dirección del cliente.
+nonce (str): Nonce a verificar.
+timestamp (float): Marca de tiempo asociada al nonce.</p>
+</dd>
+<dt>Returns:</dt><dd><p>bool: True si el nonce y la marca de tiempo son válidos, False en caso contrario.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Your Project</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">codigos_documentacion</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="cliente.html">cliente module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="interfaz_cliente.html">interfaz_cliente module</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">servidor module</a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+  <li><a href="modules.html">codigos_documentacion</a><ul>
+      <li>Previous: <a href="interfaz_cliente.html" title="previous chapter">interfaz_cliente module</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, Author.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.1</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="_sources/servidor.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>servidor &#8212; Your Project 1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=5ac185f2" />
+    <script src="../_static/documentation_options.js?v=f2a433a1"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for servidor</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">hmac</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">hashlib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">secrets</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">socket</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sqlite3</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tkinter</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">tk</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">tkinter</span><span class="w"> </span><span class="kn">import</span> <span class="n">scrolledtext</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cryptography</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cryptography.fernet</span><span class="w"> </span><span class="kn">import</span> <span class="n">Fernet</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cryptography.hazmat.primitives.asymmetric</span><span class="w"> </span><span class="kn">import</span> <span class="n">dh</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cryptography.hazmat.primitives</span><span class="w"> </span><span class="kn">import</span> <span class="n">serialization</span>
+
+<span class="k">global</span> <span class="n">SECRET_KEY</span>
+<span class="n">SECRET_KEY</span> <span class="o">=</span> <span class="sa">b</span><span class="s1">&#39;default_secret_key&#39;</span>  <span class="c1"># Cambia esto por una clave segura</span>
+
+<span class="c1"># Configuración de directorios y rutas</span>
+<span class="n">BASE_DIR</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="vm">__file__</span><span class="p">))</span>
+<span class="n">LOG_DIR</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">BASE_DIR</span><span class="p">,</span> <span class="s1">&#39;..&#39;</span><span class="p">,</span> <span class="s1">&#39;logs&#39;</span><span class="p">)</span>
+<span class="n">DB_DIR</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">BASE_DIR</span><span class="p">,</span> <span class="s1">&#39;..&#39;</span><span class="p">,</span> <span class="s1">&#39;bd y claves&#39;</span><span class="p">)</span>
+
+<span class="n">DB_KEY_PATH</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">DB_DIR</span><span class="p">,</span> <span class="s2">&quot;db_key.key&quot;</span><span class="p">)</span>
+<span class="n">LOG_PATH</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">LOG_DIR</span><span class="p">,</span> <span class="s1">&#39;server.log&#39;</span><span class="p">)</span>
+<span class="n">DB_PATH</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">DB_DIR</span><span class="p">,</span> <span class="s1">&#39;usuarios.db&#39;</span><span class="p">)</span>
+<span class="n">AUDIT_LOG_PATH</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">LOG_DIR</span><span class="p">,</span> <span class="s1">&#39;audit.log&#39;</span><span class="p">)</span>
+
+<span class="c1"># Crear directorios si no existen</span>
+<span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">LOG_DIR</span><span class="p">):</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">LOG_DIR</span><span class="p">)</span>
+
+<span class="c1"># Configuración de logging</span>
+<span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span>
+    <span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">,</span>
+    <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;</span><span class="si">%(asctime)s</span><span class="s1"> - </span><span class="si">%(levelname)s</span><span class="s1"> - </span><span class="si">%(message)s</span><span class="s1">&#39;</span><span class="p">,</span>
+    <span class="n">handlers</span><span class="o">=</span><span class="p">[</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">FileHandler</span><span class="p">(</span><span class="n">LOG_PATH</span><span class="p">),</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">()</span>
+    <span class="p">]</span>
+<span class="p">)</span>
+
+<span class="c1"># Funciones para obtener o generar las claves</span>
+<div class="viewcode-block" id="get_database_key">
+<a class="viewcode-back" href="../servidor.html#servidor.get_database_key">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_database_key</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Obtiene la clave de cifrado de la base de datos. Si no existe, genera una nueva clave y la guarda en un archivo.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        bytes: Clave de cifrado para la base de datos.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">DB_KEY_PATH</span><span class="p">):</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">DB_KEY_PATH</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">key_file</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">key_file</span><span class="o">.</span><span class="n">read</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="n">Fernet</span><span class="o">.</span><span class="n">generate_key</span><span class="p">()</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">DB_KEY_PATH</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">key_file</span><span class="p">:</span>
+            <span class="n">key_file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">key</span></div>
+
+
+<span class="n">DATABASE_ENCRYPTION_KEY</span> <span class="o">=</span> <span class="n">get_database_key</span><span class="p">()</span>
+<span class="n">FERNET_CIPHER</span> <span class="o">=</span> <span class="n">Fernet</span><span class="p">(</span><span class="n">DATABASE_ENCRYPTION_KEY</span><span class="p">)</span>
+
+<span class="c1"># Asegurar permisos de la base de datos</span>
+<span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">DB_PATH</span><span class="p">):</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">chmod</span><span class="p">(</span><span class="n">DB_PATH</span><span class="p">,</span> <span class="mo">0o600</span><span class="p">)</span>  <span class="c1"># Solo lectura/escritura para el usuario propietario</span>
+    
+<span class="c1"># Configuración de tiempos y límites</span>
+<span class="n">NONCE_EXPIRATION_TIME</span> <span class="o">=</span> <span class="mi">180</span>  <span class="c1"># Tiempo de expiración en segundos para el nonce</span>
+<span class="n">MAX_INTENTOS</span> <span class="o">=</span> <span class="mi">5</span> <span class="c1"># Numero de intentos antes de bloqueo</span>
+<span class="n">BLOQUEO_TIEMPO</span> <span class="o">=</span> <span class="mi">300</span>  <span class="c1"># Tiempo de bloqueo en segundos (5 minutos)</span>
+<span class="n">INTENTOS_EXPIRATION_TIME</span> <span class="o">=</span> <span class="mi">300</span>  <span class="c1"># Tiempo de expiración para intentos fallidos (1 hora)</span>
+<span class="n">SESSION_TIMEOUT</span> <span class="o">=</span> <span class="mi">300</span>  <span class="c1"># Tiempo de inactividad en segundos (5 minutos)</span>
+
+<span class="c1"># Estructuras de datos para gestión de sesiones y seguridad</span>
+<span class="n">client_nonces</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="n">active_sessions</span> <span class="o">=</span> <span class="p">{}</span>    
+
+<span class="c1"># -------------------------------</span>
+<span class="c1"># Funciones de Diffie-Hellman</span>
+<span class="c1"># -------------------------------</span>
+<div class="viewcode-block" id="generate_dh_parameters">
+<a class="viewcode-back" href="../servidor.html#servidor.generate_dh_parameters">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">generate_dh_parameters</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Genera parámetros de Diffie-Hellman.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        dh.Parameters: Parámetros de Diffie-Hellman.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">parameters</span> <span class="o">=</span> <span class="n">dh</span><span class="o">.</span><span class="n">generate_parameters</span><span class="p">(</span><span class="n">generator</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">key_size</span><span class="o">=</span><span class="mi">1024</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">parameters</span></div>
+
+
+<div class="viewcode-block" id="generate_dh_key">
+<a class="viewcode-back" href="../servidor.html#servidor.generate_dh_key">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">generate_dh_key</span><span class="p">(</span><span class="n">parameters</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Genera una clave privada y pública utilizando los parámetros de Diffie-Hellman.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        parameters (dh.Parameters): Parámetros de Diffie-Hellman.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        tuple: Par de claves privadas y públicas.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">private_key</span> <span class="o">=</span> <span class="n">parameters</span><span class="o">.</span><span class="n">generate_private_key</span><span class="p">()</span>
+    <span class="n">public_key</span> <span class="o">=</span> <span class="n">private_key</span><span class="o">.</span><span class="n">public_key</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">private_key</span><span class="p">,</span> <span class="n">public_key</span></div>
+
+
+<div class="viewcode-block" id="serialize_public_key">
+<a class="viewcode-back" href="../servidor.html#servidor.serialize_public_key">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">serialize_public_key</span><span class="p">(</span><span class="n">public_key</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Serializa una clave pública a formato PEM.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        public_key (dh.PublicKey): Clave pública a serializar.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        bytes: Clave pública en formato PEM.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">public_key</span><span class="o">.</span><span class="n">public_bytes</span><span class="p">(</span>
+        <span class="n">encoding</span><span class="o">=</span><span class="n">serialization</span><span class="o">.</span><span class="n">Encoding</span><span class="o">.</span><span class="n">PEM</span><span class="p">,</span>
+        <span class="nb">format</span><span class="o">=</span><span class="n">serialization</span><span class="o">.</span><span class="n">PublicFormat</span><span class="o">.</span><span class="n">SubjectPublicKeyInfo</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="deserialize_public_key">
+<a class="viewcode-back" href="../servidor.html#servidor.deserialize_public_key">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">deserialize_public_key</span><span class="p">(</span><span class="n">serialized_key</span><span class="p">,</span> <span class="n">parameters</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Deserializa una clave pública desde formato PEM.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        serialized_key (bytes): Clave pública serializada.</span>
+<span class="sd">        parameters (dh.Parameters): Parámetros de Diffie-Hellman.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        dh.PublicKey: Clave pública deserializada.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">serialization</span><span class="o">.</span><span class="n">load_pem_public_key</span><span class="p">(</span><span class="n">serialized_key</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="compute_shared_key">
+<a class="viewcode-back" href="../servidor.html#servidor.compute_shared_key">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_shared_key</span><span class="p">(</span><span class="n">private_key</span><span class="p">,</span> <span class="n">peer_public_key</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Calcula una clave compartida utilizando la clave privada y la clave pública de Diffie-Hellman del par.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        private_key (dh.PrivateKey): Clave privada.</span>
+<span class="sd">        peer_public_key (dh.PublicKey): Clave pública del par.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        bytes: Clave compartida.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">shared_key</span> <span class="o">=</span> <span class="n">private_key</span><span class="o">.</span><span class="n">exchange</span><span class="p">(</span><span class="n">peer_public_key</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">shared_key</span></div>
+
+
+<span class="c1"># -------------------------------</span>
+<span class="c1"># Funciones de Base de Datos</span>
+<span class="c1"># -------------------------------</span>
+<div class="viewcode-block" id="get_db_connection">
+<a class="viewcode-back" href="../servidor.html#servidor.get_db_connection">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_db_connection</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Obtiene una conexión a la base de datos SQLite.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        sqlite3.Connection: Conexión a la base de datos.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">conn</span> <span class="o">=</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">DB_PATH</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+        <span class="n">conn</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;PRAGMA foreign_keys = ON;&quot;</span><span class="p">)</span>  <span class="c1"># Asegurar integridad referencial</span>
+        <span class="n">conn</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;PRAGMA journal_mode = WAL;&quot;</span><span class="p">)</span>  <span class="c1"># Mejor resistencia a fallos</span>
+        <span class="n">conn</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;PRAGMA busy_timeout = 5000;&quot;</span><span class="p">)</span>  <span class="c1"># Esperar si la base de datos está bloqueada</span>
+        <span class="k">return</span> <span class="n">conn</span>
+    <span class="k">except</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">Error</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Database connection error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="encrypt_data">
+<a class="viewcode-back" href="../servidor.html#servidor.encrypt_data">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">encrypt_data</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Encripta los datos utilizando Fernet.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        data (str): Datos a encriptar.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        str: Datos encriptados.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">data</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;gAAAAA&#39;</span><span class="p">):</span>  <span class="c1"># Prefijo común de datos encriptados por Fernet</span>
+        <span class="k">return</span> <span class="n">FERNET_CIPHER</span><span class="o">.</span><span class="n">encrypt</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">data</span></div>
+
+
+<div class="viewcode-block" id="decrypt_data">
+<a class="viewcode-back" href="../servidor.html#servidor.decrypt_data">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">decrypt_data</span><span class="p">(</span><span class="n">encrypted_data</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Desencripta los datos utilizando Fernet.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        encrypted_data (str): Datos encriptados.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        str: Datos desencriptados.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">encrypted_data</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">encrypted_data</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;gAAAAA&#39;</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">FERNET_CIPHER</span><span class="o">.</span><span class="n">decrypt</span><span class="p">(</span><span class="n">encrypted_data</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span>
+        <span class="k">except</span> <span class="n">cryptography</span><span class="o">.</span><span class="n">fernet</span><span class="o">.</span><span class="n">InvalidToken</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">encrypted_data</span>
+    <span class="k">return</span> <span class="n">encrypted_data</span></div>
+
+
+<div class="viewcode-block" id="create_db">
+<a class="viewcode-back" href="../servidor.html#servidor.create_db">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_db</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Crea la base de datos y las tablas necesarias si no existen.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">conn</span> <span class="o">=</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">DB_PATH</span><span class="p">)</span>
+    <span class="n">cursor</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span>
+    <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;&#39;&#39;CREATE TABLE IF NOT EXISTS usuarios (</span>
+<span class="s1">                        username TEXT PRIMARY KEY,</span>
+<span class="s1">                        hashed_password TEXT,</span>
+<span class="s1">                        salt TEXT)&#39;&#39;&#39;</span><span class="p">)</span>
+    <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;&#39;&#39;CREATE TABLE IF NOT EXISTS transacciones (</span>
+<span class="s1">                        id INTEGER PRIMARY KEY AUTOINCREMENT,</span>
+<span class="s1">                        cuenta_origen TEXT,</span>
+<span class="s1">                        cuenta_destino TEXT,</span>
+<span class="s1">                        cantidad TEXT,</span>
+<span class="s1">                        hash TEXT,</span>
+<span class="s1">                        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)&#39;&#39;&#39;</span><span class="p">)</span>
+    <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;&#39;&#39;CREATE TABLE IF NOT EXISTS intentos_fallidos (</span>
+<span class="s1">                        username TEXT PRIMARY KEY,</span>
+<span class="s1">                        intentos INTEGER,</span>
+<span class="s1">                        ultimo_intento REAL)&#39;&#39;&#39;</span><span class="p">)</span>
+    <span class="n">conn</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+    <span class="n">conn</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="register_user">
+<a class="viewcode-back" href="../servidor.html#servidor.register_user">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">register_user</span><span class="p">(</span><span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Registra un nuevo usuario en la base de datos.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        username (str): Nombre de usuario.</span>
+<span class="sd">        password (str): Contraseña del usuario.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        bool: True si el registro fue exitoso, False en caso contrario.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="n">get_db_connection</span><span class="p">()</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
+        <span class="n">cursor</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;SELECT 1 FROM usuarios WHERE username = ?&#39;</span><span class="p">,</span> <span class="p">(</span><span class="n">username</span><span class="p">,))</span><span class="o">.</span><span class="n">fetchone</span><span class="p">():</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        
+        <span class="n">salt</span> <span class="o">=</span> <span class="n">secrets</span><span class="o">.</span><span class="n">token_hex</span><span class="p">(</span><span class="mi">32</span><span class="p">)</span>
+        <span class="n">hashed_password</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">((</span><span class="n">password</span> <span class="o">+</span> <span class="n">salt</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
+        <span class="n">encrypted_password</span> <span class="o">=</span> <span class="n">encrypt_data</span><span class="p">(</span><span class="n">hashed_password</span><span class="p">)</span>
+        <span class="n">encrypted_salt</span> <span class="o">=</span> <span class="n">encrypt_data</span><span class="p">(</span><span class="n">salt</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;INSERT INTO usuarios (username, hashed_password, salt) VALUES (?, ?, ?)&#39;</span><span class="p">,</span>
+                           <span class="p">(</span><span class="n">username</span><span class="p">,</span> <span class="n">encrypted_password</span><span class="p">,</span> <span class="n">encrypted_salt</span><span class="p">))</span>
+            <span class="n">conn</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">except</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">Error</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Database error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span></div>
+
+
+<div class="viewcode-block" id="authenticate_user">
+<a class="viewcode-back" href="../servidor.html#servidor.authenticate_user">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">authenticate_user</span><span class="p">(</span><span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Autentica a un usuario utilizando su nombre de usuario y contraseña.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        username (str): Nombre de usuario.</span>
+<span class="sd">        password (str): Contraseña del usuario.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        str: Resultado de la autenticación (&#39;LOGIN_SUCCESSFUL&#39;, &#39;LOGIN_FAILED&#39;, &#39;ACCOUNT_BLOCKED&#39;).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">DB_PATH</span><span class="p">)</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
+        <span class="n">cursor</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span>
+        <span class="n">current_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+        <span class="n">intentos_data</span> <span class="o">=</span> <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;SELECT intentos, ultimo_intento FROM intentos_fallidos WHERE username = ?&#39;</span><span class="p">,</span> <span class="p">(</span><span class="n">username</span><span class="p">,))</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">intentos_data</span> <span class="ow">and</span> <span class="n">intentos_data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">MAX_INTENTOS</span> <span class="ow">and</span> <span class="n">current_time</span> <span class="o">-</span> <span class="n">intentos_data</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">BLOQUEO_TIEMPO</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s1">&#39;ACCOUNT_BLOCKED&#39;</span>
+
+        <span class="n">stored_data</span> <span class="o">=</span> <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;SELECT hashed_password, salt FROM usuarios WHERE username = ?&#39;</span><span class="p">,</span> <span class="p">(</span><span class="n">username</span><span class="p">,))</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">stored_data</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s1">&#39;LOGIN_FAILED&#39;</span>
+
+        <span class="n">stored_password</span><span class="p">,</span> <span class="n">stored_salt</span> <span class="o">=</span> <span class="n">stored_data</span>
+        <span class="n">decrypted_password</span> <span class="o">=</span> <span class="n">decrypt_data</span><span class="p">(</span><span class="n">stored_password</span><span class="p">)</span>
+        <span class="n">decrypted_salt</span> <span class="o">=</span> <span class="n">decrypt_data</span><span class="p">(</span><span class="n">stored_salt</span><span class="p">)</span>
+
+        <span class="n">hashed_input_password</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">((</span><span class="n">password</span> <span class="o">+</span> <span class="n">decrypted_salt</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">secure_comparator</span><span class="p">(</span><span class="n">hashed_input_password</span><span class="p">,</span> <span class="n">decrypted_password</span><span class="p">,</span> <span class="n">SECRET_KEY</span><span class="p">):</span>
+            <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;DELETE FROM intentos_fallidos WHERE username = ?&#39;</span><span class="p">,</span> <span class="p">(</span><span class="n">username</span><span class="p">,))</span>
+            <span class="n">active_sessions</span><span class="p">[</span><span class="n">username</span><span class="p">]</span> <span class="o">=</span> <span class="n">current_time</span>
+            <span class="k">return</span> <span class="s1">&#39;LOGIN_SUCCESSFUL&#39;</span>
+
+        <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;INSERT OR REPLACE INTO intentos_fallidos (username, intentos, ultimo_intento) VALUES (?, COALESCE((SELECT intentos + 1 FROM intentos_fallidos WHERE username = ?), 1), ?)&#39;</span><span class="p">,</span>
+                       <span class="p">(</span><span class="n">username</span><span class="p">,</span> <span class="n">username</span><span class="p">,</span> <span class="n">current_time</span><span class="p">))</span>
+        <span class="k">return</span> <span class="s1">&#39;LOGIN_FAILED&#39;</span></div>
+
+
+<div class="viewcode-block" id="record_transaction">
+<a class="viewcode-back" href="../servidor.html#servidor.record_transaction">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">record_transaction</span><span class="p">(</span><span class="n">cuenta_origen</span><span class="p">,</span> <span class="n">cuenta_destino</span><span class="p">,</span> <span class="n">cantidad</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Registra una transacción en la base de datos.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        cuenta_origen (str): Cuenta de origen.</span>
+<span class="sd">        cuenta_destino (str): Cuenta de destino.</span>
+<span class="sd">        cantidad (float): Cantidad transferida.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        bool: True si la transacción fue registrada correctamente, False en caso contrario.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">conn</span> <span class="o">=</span> <span class="n">get_db_connection</span><span class="p">()</span>
+    <span class="n">cursor</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span>
+
+    <span class="c1"># Convertir la cantidad a string para hashing y encriptación</span>
+    <span class="n">cantidad_str</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">cantidad</span><span class="p">)</span>
+
+    <span class="c1"># Generar un hash de la transacción (SHA-256)</span>
+    <span class="n">transaction_data</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">cuenta_origen</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">cuenta_destino</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">cantidad_str</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="n">transaction_hash</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">(</span><span class="n">transaction_data</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
+
+    <span class="c1"># Encriptar datos sensibles</span>
+    <span class="n">encrypted_origen</span> <span class="o">=</span> <span class="n">encrypt_data</span><span class="p">(</span><span class="n">cuenta_origen</span><span class="p">)</span>
+    <span class="n">encrypted_destino</span> <span class="o">=</span> <span class="n">encrypt_data</span><span class="p">(</span><span class="n">cuenta_destino</span><span class="p">)</span>
+    <span class="n">encrypted_cantidad</span> <span class="o">=</span> <span class="n">encrypt_data</span><span class="p">(</span><span class="n">cantidad_str</span><span class="p">)</span>
+    <span class="n">encrypted_hash</span> <span class="o">=</span> <span class="n">encrypt_data</span><span class="p">(</span><span class="n">transaction_hash</span><span class="p">)</span>
+
+    <span class="c1"># Verificar si la transacción ya existe con comparador seguro</span>
+    <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;SELECT cantidad, hash FROM transacciones WHERE cuenta_origen=? AND cuenta_destino=?&quot;</span><span class="p">,</span>
+                   <span class="p">(</span><span class="n">encrypted_origen</span><span class="p">,</span> <span class="n">encrypted_destino</span><span class="p">))</span>
+    <span class="n">existing_transaction</span> <span class="o">=</span> <span class="n">cursor</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">existing_transaction</span><span class="p">:</span>
+        <span class="n">stored_amount</span><span class="p">,</span> <span class="n">stored_hash</span> <span class="o">=</span> <span class="n">existing_transaction</span>
+        <span class="n">decrypted_stored_hash</span> <span class="o">=</span> <span class="n">decrypt_data</span><span class="p">(</span><span class="n">stored_hash</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">secure_comparator</span><span class="p">(</span><span class="n">transaction_hash</span><span class="p">,</span> <span class="n">decrypted_stored_hash</span><span class="p">,</span> <span class="n">SECRET_KEY</span><span class="p">):</span>
+            <span class="n">conn</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="k">return</span> <span class="kc">False</span>  <span class="c1"># No registrar transacción duplicada</span>
+
+    <span class="c1"># Insertar la nueva transacción</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;INSERT INTO transacciones (cuenta_origen, cuenta_destino, cantidad, hash) VALUES (?, ?, ?, ?)&#39;</span><span class="p">,</span>
+                       <span class="p">(</span><span class="n">encrypted_origen</span><span class="p">,</span> <span class="n">encrypted_destino</span><span class="p">,</span> <span class="n">encrypted_cantidad</span><span class="p">,</span> <span class="n">encrypted_hash</span><span class="p">))</span>
+        <span class="n">conn</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+        <span class="n">log_audit</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Transacción registrada: Origen=</span><span class="si">{</span><span class="n">cuenta_origen</span><span class="si">}</span><span class="s2">, Destino=</span><span class="si">{</span><span class="n">cuenta_destino</span><span class="si">}</span><span class="s2">, Cantidad=</span><span class="si">{</span><span class="n">cantidad</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        
+        <span class="c1"># Realizar verificación de integridad después de la transacción</span>
+        <span class="n">perform_database_integrity_check</span><span class="p">()</span>
+        
+        <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">except</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">Error</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Database error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">conn</span><span class="o">.</span><span class="n">rollback</span><span class="p">()</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="n">conn</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+
+
+<span class="c1"># -------------------------------</span>
+<span class="c1"># Funciones de Seguridad</span>
+<span class="c1"># -------------------------------</span>
+<div class="viewcode-block" id="generate_nonce">
+<a class="viewcode-back" href="../servidor.html#servidor.generate_nonce">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">generate_nonce</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Genera un número único (nonce) para la autenticación.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        str: Nonce generado.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">secrets</span><span class="o">.</span><span class="n">token_hex</span><span class="p">(</span><span class="mi">16</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="generate_hmac">
+<a class="viewcode-back" href="../servidor.html#servidor.generate_hmac">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">generate_hmac</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">secret_key</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Genera un HMAC para un mensaje dado utilizando una clave secreta.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        message (str): El mensaje para el cual se generará el HMAC.</span>
+<span class="sd">        secret_key (str | bytes): La clave secreta utilizada para generar el HMAC.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        str: El HMAC generado en formato hexadecimal.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">secret_key</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">secret_key</span> <span class="o">=</span> <span class="n">secret_key</span><span class="o">.</span><span class="n">encode</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">hmac</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">secret_key</span><span class="p">,</span> <span class="n">message</span><span class="o">.</span><span class="n">encode</span><span class="p">(),</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">)</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="verify_hmac">
+<a class="viewcode-back" href="../servidor.html#servidor.verify_hmac">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">verify_hmac</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">received_hmac</span><span class="p">,</span> <span class="n">secret_key</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Verifica que el HMAC recibido coincida con el HMAC esperado.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        message (str): El mensaje original.</span>
+<span class="sd">        received_hmac (str): El HMAC recibido.</span>
+<span class="sd">        secret_key (str | bytes): La clave secreta utilizada para generar el HMAC.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        bool: True si el HMAC es válido, False en caso contrario.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">expected_hmac</span> <span class="o">=</span> <span class="n">generate_hmac</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">secret_key</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">secure_comparator</span><span class="p">(</span><span class="n">expected_hmac</span><span class="p">,</span> <span class="n">received_hmac</span><span class="p">,</span> <span class="n">secret_key</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="verify_nonce_and_timestamp">
+<a class="viewcode-back" href="../servidor.html#servidor.verify_nonce_and_timestamp">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">verify_nonce_and_timestamp</span><span class="p">(</span><span class="n">client_address</span><span class="p">,</span> <span class="n">nonce</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Verifica la validez de un nonce y una marca de tiempo.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        client_address (str): Dirección del cliente.</span>
+<span class="sd">        nonce (str): Nonce a verificar.</span>
+<span class="sd">        timestamp (float): Marca de tiempo asociada al nonce.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        bool: True si el nonce y la marca de tiempo son válidos, False en caso contrario.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">current_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+    <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">current_time</span> <span class="o">-</span> <span class="nb">float</span><span class="p">(</span><span class="n">timestamp</span><span class="p">))</span> <span class="o">&gt;</span> <span class="n">NONCE_EXPIRATION_TIME</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">if</span> <span class="n">nonce</span> <span class="ow">in</span> <span class="n">client_nonces</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">client_address</span><span class="p">,</span> <span class="p">{}):</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="n">client_nonces</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">client_address</span><span class="p">,</span> <span class="p">{})[</span><span class="n">nonce</span><span class="p">]</span> <span class="o">=</span> <span class="n">current_time</span>
+    <span class="k">return</span> <span class="kc">True</span></div>
+
+
+<div class="viewcode-block" id="clean_old_nonces">
+<a class="viewcode-back" href="../servidor.html#servidor.clean_old_nonces">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">clean_old_nonces</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Limpia los nonces antiguos de la memoria.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="n">current_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">client</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">client_nonces</span><span class="p">):</span>
+            <span class="n">client_nonces</span><span class="p">[</span><span class="n">client</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">nonce</span><span class="p">:</span> <span class="n">ts</span> <span class="k">for</span> <span class="n">nonce</span><span class="p">,</span> <span class="n">ts</span> <span class="ow">in</span> <span class="n">client_nonces</span><span class="p">[</span><span class="n">client</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">current_time</span> <span class="o">-</span> <span class="n">ts</span> <span class="o">&lt;=</span> <span class="n">NONCE_EXPIRATION_TIME</span><span class="p">}</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">client_nonces</span><span class="p">[</span><span class="n">client</span><span class="p">]:</span>
+                <span class="k">del</span> <span class="n">client_nonces</span><span class="p">[</span><span class="n">client</span><span class="p">]</span>
+        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="secure_comparator">
+<a class="viewcode-back" href="../servidor.html#servidor.secure_comparator">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">secure_comparator</span><span class="p">(</span><span class="n">value1</span><span class="p">,</span> <span class="n">value2</span><span class="p">,</span> <span class="n">secret_key</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compara dos valores de forma segura utilizando una clave secreta.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        value1 (str | bytes): Primer valor.</span>
+<span class="sd">        value2 (str | bytes): Segundo valor.</span>
+<span class="sd">        secret_key (str | bytes): La clave secreta utilizada para la comparación.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        bool: True si los valores coinciden, False en caso contrario.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">secret_key</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;SECRET_KEY is None. Using default comparison.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">value1</span> <span class="o">==</span> <span class="n">value2</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">secret_key</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">secret_key</span> <span class="o">=</span> <span class="n">secret_key</span><span class="o">.</span><span class="n">encode</span><span class="p">()</span>
+    
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value1</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">value1</span> <span class="o">=</span> <span class="n">value1</span><span class="o">.</span><span class="n">encode</span><span class="p">()</span>
+    
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value2</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">value2</span> <span class="o">=</span> <span class="n">value2</span><span class="o">.</span><span class="n">encode</span><span class="p">()</span>
+    
+    <span class="n">mac1</span> <span class="o">=</span> <span class="n">hmac</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">secret_key</span><span class="p">,</span> <span class="n">value1</span><span class="p">,</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">)</span><span class="o">.</span><span class="n">digest</span><span class="p">()</span>
+    <span class="n">mac2</span> <span class="o">=</span> <span class="n">hmac</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">secret_key</span><span class="p">,</span> <span class="n">value2</span><span class="p">,</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">)</span><span class="o">.</span><span class="n">digest</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">secrets</span><span class="o">.</span><span class="n">compare_digest</span><span class="p">(</span><span class="n">mac1</span><span class="p">,</span> <span class="n">mac2</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="log_audit">
+<a class="viewcode-back" href="../servidor.html#servidor.log_audit">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">log_audit</span><span class="p">(</span><span class="n">message</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Registra un mensaje de auditoría en el archivo de log de auditoría.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        message (str): El mensaje a registrar.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">AUDIT_LOG_PATH</span><span class="p">,</span> <span class="s1">&#39;a&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">audit_file</span><span class="p">:</span>
+        <span class="n">audit_file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;[</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2"> %H:%M:%S&quot;</span><span class="p">)</span><span class="si">}</span><span class="s1">] - </span><span class="si">{</span><span class="n">message</span><span class="si">}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span></div>
+
+
+<span class="c1"># -------------------------------</span>
+<span class="c1"># Funciones de Limpieza y Mantenimiento</span>
+<span class="c1"># -------------------------------</span>
+<div class="viewcode-block" id="clean_old_failed_attempts">
+<a class="viewcode-back" href="../servidor.html#servidor.clean_old_failed_attempts">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">clean_old_failed_attempts</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Limpia los registros de intentos fallidos antiguos de la base de datos.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="n">get_db_connection</span><span class="p">()</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
+        <span class="n">conn</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;DELETE FROM intentos_fallidos WHERE ultimo_intento &lt; ?&#39;</span><span class="p">,</span> 
+                     <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">INTENTOS_EXPIRATION_TIME</span><span class="p">,))</span>
+        <span class="n">conn</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+    <span class="n">log_audit</span><span class="p">(</span><span class="s2">&quot;Limpieza de intentos fallidos antiguos realizada.&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="perform_database_integrity_check">
+<a class="viewcode-back" href="../servidor.html#servidor.perform_database_integrity_check">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">perform_database_integrity_check</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Realiza una verificación de integridad de la base de datos para asegurar que los datos no han sido comprometidos.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        bool: True si la integridad de la base de datos es válida, False en caso contrario.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">SECRET_KEY</span>
+    <span class="k">if</span> <span class="n">SECRET_KEY</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;SECRET_KEY is not set. Skipping database integrity check.&quot;</span><span class="p">)</span>
+        <span class="k">return</span>
+
+    <span class="n">conn</span> <span class="o">=</span> <span class="n">get_db_connection</span><span class="p">()</span>
+    <span class="n">cursor</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span>
+    
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># Obtener todas las transacciones</span>
+        <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;SELECT id, cuenta_origen, cuenta_destino, cantidad, hash FROM transacciones&quot;</span><span class="p">)</span>
+        <span class="n">transactions</span> <span class="o">=</span> <span class="n">cursor</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+        
+        <span class="k">for</span> <span class="n">transaction</span> <span class="ow">in</span> <span class="n">transactions</span><span class="p">:</span>
+            <span class="nb">id</span><span class="p">,</span> <span class="n">encrypted_origen</span><span class="p">,</span> <span class="n">encrypted_destino</span><span class="p">,</span> <span class="n">encrypted_cantidad</span><span class="p">,</span> <span class="n">encrypted_hash</span> <span class="o">=</span> <span class="n">transaction</span>
+            
+            <span class="c1"># Desencriptar los datos</span>
+            <span class="n">cuenta_origen</span> <span class="o">=</span> <span class="n">decrypt_data</span><span class="p">(</span><span class="n">encrypted_origen</span><span class="p">)</span>
+            <span class="n">cuenta_destino</span> <span class="o">=</span> <span class="n">decrypt_data</span><span class="p">(</span><span class="n">encrypted_destino</span><span class="p">)</span>
+            <span class="n">cantidad</span> <span class="o">=</span> <span class="n">decrypt_data</span><span class="p">(</span><span class="n">encrypted_cantidad</span><span class="p">)</span>
+            <span class="n">stored_hash</span> <span class="o">=</span> <span class="n">decrypt_data</span><span class="p">(</span><span class="n">encrypted_hash</span><span class="p">)</span>
+            
+            <span class="c1"># Recalcular el hash de la transacción</span>
+            <span class="n">transaction_data</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">cuenta_origen</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">cuenta_destino</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">cantidad</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">calculated_hash</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">(</span><span class="n">transaction_data</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
+            
+            <span class="c1"># Comparar los hashes de manera segura</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">secure_comparator</span><span class="p">(</span><span class="n">calculated_hash</span><span class="p">,</span> <span class="n">stored_hash</span><span class="p">,</span> <span class="n">SECRET_KEY</span><span class="p">):</span>
+                <span class="n">log_audit</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Integridad comprometida en la transacción ID </span><span class="si">{</span><span class="nb">id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">return</span> <span class="kc">False</span>
+        
+        <span class="n">log_audit</span><span class="p">(</span><span class="s2">&quot;Verificación de integridad de la base de datos completada con éxito&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">True</span>
+    
+    <span class="k">except</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">Error</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">log_audit</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error durante la verificación de integridad de la base de datos: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="n">conn</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="backup_database">
+<a class="viewcode-back" href="../servidor.html#servidor.backup_database">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">backup_database</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Realiza una copia de seguridad de la base de datos.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        sqlite3.Error: Si ocurre un error durante la copia de seguridad.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">backup_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">BASE_DIR</span><span class="p">,</span> <span class="s1">&#39;..&#39;</span><span class="p">,</span> <span class="s1">&#39;backup&#39;</span><span class="p">,</span>
+                               <span class="sa">f</span><span class="s1">&#39;usuarios_backup_</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">%H%M%S&quot;</span><span class="p">)</span><span class="si">}</span><span class="s1">.db&#39;</span><span class="p">)</span>  <span class="c1"># Corrected backup path</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">get_db_connection</span><span class="p">()</span> <span class="k">as</span> <span class="n">conn</span><span class="p">,</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">backup_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">backup_conn</span><span class="p">:</span>
+            <span class="n">conn</span><span class="o">.</span><span class="n">backup</span><span class="p">(</span><span class="n">backup_conn</span><span class="p">)</span>
+        <span class="n">log_message</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Base de datos respaldada en </span><span class="si">{</span><span class="n">backup_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;Sistema&quot;</span><span class="p">,</span> <span class="s2">&quot;Backup&quot;</span><span class="p">))</span>
+        <span class="n">log_audit</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Base de datos respaldada en </span><span class="si">{</span><span class="n">backup_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">Error</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">log_message</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error al realizar la copia de seguridad: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;Sistema&quot;</span><span class="p">,</span> <span class="s2">&quot;Backup&quot;</span><span class="p">))</span>
+        <span class="n">log_audit</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error al realizar la copia de seguridad: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="scheduled_backup">
+<a class="viewcode-back" href="../servidor.html#servidor.scheduled_backup">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">scheduled_backup</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Realiza una copia de seguridad de la base de datos de forma programada cada 24 horas.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="n">backup_database</span><span class="p">()</span>
+        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">86400</span><span class="p">)</span>  <span class="c1"># Esperar 24 horas</span></div>
+
+
+<div class="viewcode-block" id="check_session_timeout">
+<a class="viewcode-back" href="../servidor.html#servidor.check_session_timeout">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">check_session_timeout</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Verifica el tiempo de inactividad de las sesiones y cierra aquellas que han expirado.</span>
+
+<span class="sd">    Esta función se ejecuta en un bucle continuo.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="n">current_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">username</span><span class="p">,</span> <span class="n">last_activity</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">active_sessions</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+            <span class="k">if</span> <span class="n">current_time</span> <span class="o">-</span> <span class="n">last_activity</span> <span class="o">&gt;</span> <span class="n">SESSION_TIMEOUT</span><span class="p">:</span>
+                <span class="k">del</span> <span class="n">active_sessions</span><span class="p">[</span><span class="n">username</span><span class="p">]</span>
+                <span class="n">log_audit</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sesión de usuario </span><span class="si">{</span><span class="n">username</span><span class="si">}</span><span class="s2"> expiró por inactividad.&quot;</span><span class="p">)</span>
+                <span class="n">log_message</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sesión de usuario </span><span class="si">{</span><span class="n">username</span><span class="si">}</span><span class="s2"> expiró por inactividad.&quot;</span><span class="p">,(</span><span class="s2">&quot;Sistema&quot;</span><span class="p">))</span>
+        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">60</span><span class="p">)</span>  <span class="c1"># Verificar cada minuto</span></div>
+
+
+<span class="c1"># -------------------------------</span>
+<span class="c1"># Servidor y Gestión de Clientes</span>
+<span class="c1"># -------------------------------</span>
+<div class="viewcode-block" id="handle_client">
+<a class="viewcode-back" href="../servidor.html#servidor.handle_client">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">handle_client</span><span class="p">(</span><span class="n">connection</span><span class="p">,</span> <span class="n">address</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Maneja la conexión de un cliente, incluyendo el intercambio de claves DH y la autenticación de mensajes.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        connection (socket.socket): La conexión del cliente.</span>
+<span class="sd">        address (tuple): La dirección del cliente.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">log_message</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Conectado con </span><span class="si">{</span><span class="n">address</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">address</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># Generar parámetros y claves DH</span>
+        <span class="n">parameters</span> <span class="o">=</span> <span class="n">generate_dh_parameters</span><span class="p">()</span>
+        <span class="n">private_key</span><span class="p">,</span> <span class="n">public_key</span> <span class="o">=</span> <span class="n">generate_dh_key</span><span class="p">(</span><span class="n">parameters</span><span class="p">)</span>
+        
+        <span class="c1"># Enviar parámetros y clave pública al cliente</span>
+        <span class="n">serialized_params</span> <span class="o">=</span> <span class="n">parameters</span><span class="o">.</span><span class="n">parameter_bytes</span><span class="p">(</span>
+            <span class="n">encoding</span><span class="o">=</span><span class="n">serialization</span><span class="o">.</span><span class="n">Encoding</span><span class="o">.</span><span class="n">PEM</span><span class="p">,</span>
+            <span class="nb">format</span><span class="o">=</span><span class="n">serialization</span><span class="o">.</span><span class="n">ParameterFormat</span><span class="o">.</span><span class="n">PKCS3</span>
+        <span class="p">)</span>
+        <span class="n">serialized_public_key</span> <span class="o">=</span> <span class="n">serialize_public_key</span><span class="p">(</span><span class="n">public_key</span><span class="p">)</span>
+        
+        <span class="c1"># Enviar longitud de los parámetros primero</span>
+        <span class="n">connection</span><span class="o">.</span><span class="n">sendall</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">serialized_params</span><span class="p">)</span><span class="o">.</span><span class="n">to_bytes</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">byteorder</span><span class="o">=</span><span class="s1">&#39;big&#39;</span><span class="p">))</span>
+        <span class="n">connection</span><span class="o">.</span><span class="n">sendall</span><span class="p">(</span><span class="n">serialized_params</span><span class="p">)</span>
+        
+        <span class="c1"># Enviar longitud de la clave pública</span>
+        <span class="n">connection</span><span class="o">.</span><span class="n">sendall</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">serialized_public_key</span><span class="p">)</span><span class="o">.</span><span class="n">to_bytes</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">byteorder</span><span class="o">=</span><span class="s1">&#39;big&#39;</span><span class="p">))</span>
+        <span class="n">connection</span><span class="o">.</span><span class="n">sendall</span><span class="p">(</span><span class="n">serialized_public_key</span><span class="p">)</span>
+        
+        <span class="c1"># Recibir clave pública del cliente</span>
+        <span class="n">client_public_key_length</span> <span class="o">=</span> <span class="nb">int</span><span class="o">.</span><span class="n">from_bytes</span><span class="p">(</span><span class="n">connection</span><span class="o">.</span><span class="n">recv</span><span class="p">(</span><span class="mi">4</span><span class="p">),</span> <span class="n">byteorder</span><span class="o">=</span><span class="s1">&#39;big&#39;</span><span class="p">)</span>
+        <span class="n">client_public_key_bytes</span> <span class="o">=</span> <span class="n">connection</span><span class="o">.</span><span class="n">recv</span><span class="p">(</span><span class="n">client_public_key_length</span><span class="p">)</span>
+        <span class="n">client_public_key</span> <span class="o">=</span> <span class="n">deserialize_public_key</span><span class="p">(</span><span class="n">client_public_key_bytes</span><span class="p">,</span> <span class="n">parameters</span><span class="p">)</span>
+        
+        <span class="c1"># Calcular clave compartida</span>
+        <span class="n">shared_key</span> <span class="o">=</span> <span class="n">compute_shared_key</span><span class="p">(</span><span class="n">private_key</span><span class="p">,</span> <span class="n">client_public_key</span><span class="p">)</span>
+        
+        <span class="c1"># Usar los primeros 32 bytes de la clave compartida como SECRET_KEY</span>
+        <span class="k">global</span> <span class="n">SECRET_KEY</span>
+        <span class="n">SECRET_KEY</span> <span class="o">=</span> <span class="n">shared_key</span><span class="p">[:</span><span class="mi">32</span><span class="p">]</span>
+        
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">client_nonce</span><span class="p">,</span> <span class="n">timestamp</span> <span class="o">=</span> <span class="n">generate_nonce</span><span class="p">(),</span> <span class="nb">str</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">())</span>
+            <span class="n">connection</span><span class="o">.</span><span class="n">sendall</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;NONCE:</span><span class="si">{</span><span class="n">client_nonce</span><span class="si">}</span><span class="s1">:TIMESTAMP:</span><span class="si">{</span><span class="n">timestamp</span><span class="si">}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">connection</span><span class="o">.</span><span class="n">recv</span><span class="p">(</span><span class="mi">1024</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">data</span><span class="p">:</span>
+                <span class="k">break</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">hmac_value</span><span class="p">,</span> <span class="n">message</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="n">nonce</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">,</span> <span class="n">command</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">verify_hmac</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">hmac_value</span><span class="p">,</span> <span class="n">SECRET_KEY</span><span class="p">)</span> <span class="ow">and</span> <span class="n">verify_nonce_and_timestamp</span><span class="p">(</span><span class="n">address</span><span class="p">,</span> <span class="n">nonce</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">):</span>
+                    <span class="n">log_message</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Mensaje Recibido:</span><span class="si">{</span><span class="n">command</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">address</span><span class="p">)</span>
+                    <span class="n">process_client_command</span><span class="p">(</span><span class="n">connection</span><span class="p">,</span> <span class="n">address</span><span class="p">,</span> <span class="n">command</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">connection</span><span class="o">.</span><span class="n">sendall</span><span class="p">(</span><span class="sa">b</span><span class="s1">&#39;HMAC_FAILED or Nonce/Timestamp invalid&#39;</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                <span class="n">connection</span><span class="o">.</span><span class="n">sendall</span><span class="p">(</span><span class="sa">b</span><span class="s1">&#39;Invalid message format&#39;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">log_message</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Error en el manejo del cliente: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">address</span><span class="p">)</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="n">connection</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="n">log_message</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Conexión cerrada con </span><span class="si">{</span><span class="n">address</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">address</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="process_client_command">
+<a class="viewcode-back" href="../servidor.html#servidor.process_client_command">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">process_client_command</span><span class="p">(</span><span class="n">connection</span><span class="p">,</span> <span class="n">address</span><span class="p">,</span> <span class="n">message</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Procesa los comandos recibidos del cliente.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        connection (socket.socket): Conexión con el cliente.</span>
+<span class="sd">        address (tuple): Dirección del cliente (IP, puerto).</span>
+<span class="sd">        message (str): Mensaje recibido del cliente.</span>
+
+<span class="sd">    El mensaje se espera en el formato &#39;COMANDO:PARAMETRO1:PARAMETRO2:...&#39;</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">parts</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">)</span>
+    <span class="n">command</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">response</span> <span class="o">=</span> <span class="s1">&#39;Unknown command&#39;</span>
+
+    <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="s1">&#39;REGISTER&#39;</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="s1">&#39;REGISTER_SUCCESSFUL&#39;</span> <span class="k">if</span> <span class="n">register_user</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="k">else</span> <span class="s1">&#39;REGISTER_FAILED&#39;</span>
+
+    <span class="k">elif</span> <span class="n">command</span> <span class="o">==</span> <span class="s1">&#39;LOGIN&#39;</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="n">auth_result</span> <span class="o">=</span> <span class="n">authenticate_user</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="s1">&#39;ACCOUNT_BLOCKED&#39;</span> <span class="k">if</span> <span class="n">auth_result</span> <span class="o">==</span> <span class="s1">&#39;ACCOUNT_BLOCKED&#39;</span> <span class="k">else</span> <span class="n">auth_result</span>
+
+    <span class="k">elif</span> <span class="n">command</span> <span class="o">==</span> <span class="s1">&#39;TRANSACTION&#39;</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">==</span> <span class="mi">5</span><span class="p">:</span>
+        <span class="n">username</span><span class="p">,</span> <span class="n">origen</span><span class="p">,</span> <span class="n">destino</span><span class="p">,</span> <span class="n">cantidad</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="k">if</span> <span class="n">username</span> <span class="ow">in</span> <span class="n">active_sessions</span> <span class="ow">and</span> <span class="n">username</span> <span class="o">==</span> <span class="n">origen</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">response</span> <span class="o">=</span> <span class="s1">&#39;TRANSACTION_SUCCESSFUL&#39;</span> <span class="k">if</span> <span class="n">record_transaction</span><span class="p">(</span><span class="n">origen</span><span class="p">,</span> <span class="n">destino</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">cantidad</span><span class="p">))</span> <span class="k">else</span> <span class="s1">&#39;TRANSACTION_FAILED&#39;</span>
+            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                <span class="n">response</span> <span class="o">=</span> <span class="s1">&#39;TRANSACTION_FAILED&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="s1">&#39;SESION_EXPIRE&#39;</span> <span class="k">if</span> <span class="n">username</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">active_sessions</span> <span class="k">else</span> <span class="s1">&#39;TRANSACTION_FAILED&#39;</span>
+
+    <span class="k">elif</span> <span class="n">command</span> <span class="o">==</span> <span class="s1">&#39;LOGOUT&#39;</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">username</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">username</span> <span class="ow">in</span> <span class="n">active_sessions</span><span class="p">:</span>
+            <span class="k">del</span> <span class="n">active_sessions</span><span class="p">[</span><span class="n">username</span><span class="p">]</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="s1">&#39;LOGOUT_SUCCESSFUL&#39;</span>
+            <span class="n">log_audit</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Usuario </span><span class="si">{</span><span class="n">username</span><span class="si">}</span><span class="s2"> cerró sesión.&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="s1">&#39;SESION_EXPIRE&#39;</span>
+
+    <span class="n">connection</span><span class="o">.</span><span class="n">sendall</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span></div>
+
+
+<div class="viewcode-block" id="start_server">
+<a class="viewcode-back" href="../servidor.html#servidor.start_server">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">start_server</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Inicia el servidor y maneja las conexiones entrantes.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">host</span><span class="p">,</span> <span class="n">port</span> <span class="o">=</span> <span class="s1">&#39;127.0.0.1&#39;</span><span class="p">,</span> <span class="mi">65432</span>
+    <span class="k">with</span> <span class="n">socket</span><span class="o">.</span><span class="n">socket</span><span class="p">(</span><span class="n">socket</span><span class="o">.</span><span class="n">AF_INET</span><span class="p">,</span> <span class="n">socket</span><span class="o">.</span><span class="n">SOCK_STREAM</span><span class="p">)</span> <span class="k">as</span> <span class="n">server_socket</span><span class="p">:</span>
+        <span class="n">server_socket</span><span class="o">.</span><span class="n">bind</span><span class="p">((</span><span class="n">host</span><span class="p">,</span> <span class="n">port</span><span class="p">))</span>
+        <span class="n">server_socket</span><span class="o">.</span><span class="n">listen</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+        <span class="n">log_message</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Servidor escuchando en </span><span class="si">{</span><span class="n">host</span><span class="si">}</span><span class="s1">:</span><span class="si">{</span><span class="n">port</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="p">(</span><span class="n">host</span><span class="p">,</span> <span class="n">port</span><span class="p">))</span>
+        
+        <span class="c1"># Iniciar hilos de mantenimiento</span>
+        <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="p">[</span><span class="n">clean_old_nonces</span><span class="p">,</span> <span class="n">clean_old_failed_attempts</span><span class="p">,</span> 
+                     <span class="n">check_session_timeout</span><span class="p">,</span> <span class="n">scheduled_backup</span><span class="p">]:</span>
+            <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">task</span><span class="p">,</span> <span class="n">daemon</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+        
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">connection</span><span class="p">,</span> <span class="n">address</span> <span class="o">=</span> <span class="n">server_socket</span><span class="o">.</span><span class="n">accept</span><span class="p">()</span>
+            <span class="n">client_thread</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">handle_client</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">connection</span><span class="p">,</span> <span class="n">address</span><span class="p">),</span> <span class="n">daemon</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">client_thread</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+            
+            <span class="c1"># Realizar verificación de integridad después de establecer una conexión</span>
+            <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">perform_database_integrity_check</span><span class="p">,</span> <span class="n">daemon</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">start</span><span class="p">()</span></div>
+
+
+<span class="c1"># -------------------------------</span>
+<span class="c1"># Interfaz Gráfica (GUI)</span>
+<span class="c1"># -------------------------------</span>
+<div class="viewcode-block" id="log_message">
+<a class="viewcode-back" href="../servidor.html#servidor.log_message">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">log_message</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">address</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Registra un mensaje en la interfaz gráfica y en el archivo de log.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        message (str): Mensaje a registrar.</span>
+<span class="sd">        address (tuple): Dirección del cliente (IP, puerto).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">log_entry</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;[</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2"> %H:%M:%S&quot;</span><span class="p">)</span><span class="si">}</span><span class="s1">] </span><span class="si">{</span><span class="n">address</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s1">:</span><span class="si">{</span><span class="n">address</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s1"> - </span><span class="si">{</span><span class="n">message</span><span class="si">}</span><span class="se">\n\n</span><span class="s1">&#39;</span>
+    <span class="n">root</span><span class="o">.</span><span class="n">after</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="k">lambda</span><span class="p">:</span> <span class="p">(</span><span class="n">text_widget</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">tk</span><span class="o">.</span><span class="n">END</span><span class="p">,</span> <span class="n">log_entry</span><span class="p">),</span> <span class="n">text_widget</span><span class="o">.</span><span class="n">yview</span><span class="p">(</span><span class="n">tk</span><span class="o">.</span><span class="n">END</span><span class="p">)))</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">LOG_PATH</span><span class="p">,</span> <span class="s1">&#39;a&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">log_file</span><span class="p">:</span>
+        <span class="n">log_file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">log_entry</span><span class="p">)</span></div>
+
+
+<span class="c1"># Inicialización y ejecución</span>
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">root</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">Tk</span><span class="p">()</span>
+    <span class="n">root</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Servidor de Autenticación&#39;</span><span class="p">)</span>
+    <span class="n">text_widget</span> <span class="o">=</span> <span class="n">scrolledtext</span><span class="o">.</span><span class="n">ScrolledText</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">wrap</span><span class="o">=</span><span class="n">tk</span><span class="o">.</span><span class="n">WORD</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">80</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+    <span class="n">text_widget</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="n">padx</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">pady</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+
+    <span class="n">create_db</span><span class="p">()</span>
+    
+    <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="p">[</span><span class="n">start_server</span><span class="p">,</span> <span class="n">clean_old_nonces</span><span class="p">,</span> <span class="n">clean_old_failed_attempts</span><span class="p">,</span> 
+                 <span class="n">perform_database_integrity_check</span><span class="p">,</span> <span class="n">check_session_timeout</span><span class="p">,</span> <span class="n">scheduled_backup</span><span class="p">]:</span>
+        <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">task</span><span class="p">,</span> <span class="n">daemon</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+
+    <span class="n">root</span><span class="o">.</span><span class="n">mainloop</span><span class="p">()</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Your Project</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../modules.html">codigos_documentacion</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, Author.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.1</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

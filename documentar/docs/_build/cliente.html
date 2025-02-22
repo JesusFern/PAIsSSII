@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>cliente module &#8212; Your Project 1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
+    <link rel="stylesheet" type="text/css" href="_static/custom.css?v=5ac185f2" />
+    <script src="_static/documentation_options.js?v=f2a433a1"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="interfaz_cliente module" href="interfaz_cliente.html" />
+    <link rel="prev" title="codigos_documentacion" href="modules.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="module-cliente">
+<span id="cliente-module"></span><h1>cliente module<a class="headerlink" href="#module-cliente" title="Link to this heading">¶</a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="cliente.Cliente">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">cliente.</span></span><span class="sig-name descname"><span class="pre">Cliente</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">host</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'127.0.0.1'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">port</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">65432</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cliente.html#Cliente"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cliente.Cliente" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Clase Cliente que se conecta a un servidor, realiza el intercambio de claves Diffie-Hellman
+y envía/recibe solicitudes/respuestas con HMAC.</p>
+<dl class="simple">
+<dt>Attributes:</dt><dd><p>host (str): Dirección del host.
+port (int): Puerto de conexión.
+socket (socket.socket): El socket utilizado para la comunicación.
+nonce (str): El nonce utilizado en las solicitudes.
+timestamp (str): La marca de tiempo utilizada en las solicitudes.</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="cliente.Cliente.close">
+<span class="sig-name descname"><span class="pre">close</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/cliente.html#Cliente.close"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cliente.Cliente.close" title="Link to this definition">¶</a></dt>
+<dd><p>Cerrar la conexión con el servidor.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cliente.Cliente.connect">
+<span class="sig-name descname"><span class="pre">connect</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/cliente.html#Cliente.connect"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cliente.Cliente.connect" title="Link to this definition">¶</a></dt>
+<dd><p>Conectar al servidor y realizar el intercambio Diffie-Hellman.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cliente.Cliente.login">
+<span class="sig-name descname"><span class="pre">login</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">username</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">password</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cliente.html#Cliente.login"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cliente.Cliente.login" title="Link to this definition">¶</a></dt>
+<dd><p>Iniciar sesión en el servidor.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>username (str): Nombre de usuario.
+password (str): Contraseña del usuario.</p>
+</dd>
+<dt>Returns:</dt><dd><p>str: Respuesta del servidor.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cliente.Cliente.logout">
+<span class="sig-name descname"><span class="pre">logout</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">username</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cliente.html#Cliente.logout"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cliente.Cliente.logout" title="Link to this definition">¶</a></dt>
+<dd><p>Cerrar sesión del servidor.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>username (str): Nombre de usuario.</p>
+</dd>
+<dt>Returns:</dt><dd><p>str: Respuesta del servidor.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cliente.Cliente.perform_dh_exchange">
+<span class="sig-name descname"><span class="pre">perform_dh_exchange</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/cliente.html#Cliente.perform_dh_exchange"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cliente.Cliente.perform_dh_exchange" title="Link to this definition">¶</a></dt>
+<dd><p>Realizar el intercambio Diffie-Hellman con el servidor para establecer una clave secreta compartida.</p>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>Exception: Si ocurre un error durante el intercambio Diffie-Hellman.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cliente.Cliente.receive_nonce_and_timestamp">
+<span class="sig-name descname"><span class="pre">receive_nonce_and_timestamp</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/cliente.html#Cliente.receive_nonce_and_timestamp"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cliente.Cliente.receive_nonce_and_timestamp" title="Link to this definition">¶</a></dt>
+<dd><p>Recibir un nuevo nonce y timestamp del servidor.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cliente.Cliente.receive_response">
+<span class="sig-name descname"><span class="pre">receive_response</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/cliente.html#Cliente.receive_response"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cliente.Cliente.receive_response" title="Link to this definition">¶</a></dt>
+<dd><p>Recibir una respuesta del servidor.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>str: La respuesta recibida del servidor.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cliente.Cliente.register">
+<span class="sig-name descname"><span class="pre">register</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">username</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">password</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cliente.html#Cliente.register"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cliente.Cliente.register" title="Link to this definition">¶</a></dt>
+<dd><p>Registrar un nuevo usuario en el servidor.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>username (str): Nombre de usuario.
+password (str): Contraseña del usuario.</p>
+</dd>
+<dt>Returns:</dt><dd><p>str: Respuesta del servidor.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cliente.Cliente.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/cliente.html#Cliente.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cliente.Cliente.run" title="Link to this definition">¶</a></dt>
+<dd><p>Función principal para manejar la interfaz y el cliente.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cliente.Cliente.send_request">
+<span class="sig-name descname"><span class="pre">send_request</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">request</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cliente.html#Cliente.send_request"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cliente.Cliente.send_request" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cliente.Cliente.transaction">
+<span class="sig-name descname"><span class="pre">transaction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">username</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">origen</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">destino</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cantidad</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cliente.html#Cliente.transaction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cliente.Cliente.transaction" title="Link to this definition">¶</a></dt>
+<dd><p>Realizar una transacción entre cuentas.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>username (str): Nombre de usuario.
+origen (str): Cuenta de origen.
+destino (str): Cuenta de destino.
+cantidad (float): Cantidad a transferir.</p>
+</dd>
+<dt>Returns:</dt><dd><p>str: Respuesta del servidor.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cliente.generate_hmac">
+<span class="sig-prename descclassname"><span class="pre">cliente.</span></span><span class="sig-name descname"><span class="pre">generate_hmac</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">secret_key</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cliente.html#generate_hmac"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cliente.generate_hmac" title="Link to this definition">¶</a></dt>
+<dd><p>Generar un HMAC dado un mensaje y una clave secreta.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>message (str): El mensaje para el cual se generará el HMAC.
+secret_key (bytes): La clave secreta utilizada para generar el HMAC.</p>
+</dd>
+<dt>Returns:</dt><dd><p>str: El HMAC generado en formato hexadecimal.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cliente.hmac_decorator">
+<span class="sig-prename descclassname"><span class="pre">cliente.</span></span><span class="sig-name descname"><span class="pre">hmac_decorator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">func</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cliente.html#hmac_decorator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cliente.hmac_decorator" title="Link to this definition">¶</a></dt>
+<dd><p>Decorador para añadir HMAC a las solicitudes.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>func (function): La función a decorar.</p>
+</dd>
+<dt>Returns:</dt><dd><p>function: La función decorada con HMAC añadido a la solicitud.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Your Project</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">codigos_documentacion</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">cliente module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="interfaz_cliente.html">interfaz_cliente module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="servidor.html">servidor module</a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+  <li><a href="modules.html">codigos_documentacion</a><ul>
+      <li>Previous: <a href="modules.html" title="previous chapter">codigos_documentacion</a></li>
+      <li>Next: <a href="interfaz_cliente.html" title="next chapter">interfaz_cliente module</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, Author.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.1</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="_sources/cliente.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

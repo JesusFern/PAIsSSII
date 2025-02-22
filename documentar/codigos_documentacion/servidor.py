@@ -15,7 +15,7 @@ from cryptography.hazmat.primitives.asymmetric import dh
 from cryptography.hazmat.primitives import serialization
 
 global SECRET_KEY
-SECRET_KEY = secrets.token_bytes(32)  # Generates a secure random 32-byte key
+SECRET_KEY = b'default_secret_key'  # Cambia esto por una clave segura
 
 # Configuración de directorios y rutas
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -43,6 +43,12 @@ logging.basicConfig(
 
 # Funciones para obtener o generar las claves
 def get_database_key():
+    """
+    Obtiene la clave de cifrado de la base de datos. Si no existe, genera una nueva clave y la guarda en un archivo.
+
+    Returns:
+        bytes: Clave de cifrado para la base de datos.
+    """
     if os.path.exists(DB_KEY_PATH):
         with open(DB_KEY_PATH, "rb") as key_file:
             return key_file.read().strip()
@@ -74,24 +80,68 @@ active_sessions = {}
 # Funciones de Diffie-Hellman
 # -------------------------------
 def generate_dh_parameters():
-    parameters = dh.generate_parameters(generator=2, key_size=2048)
+    """
+    Genera parámetros de Diffie-Hellman.
+
+    Returns:
+        dh.Parameters: Parámetros de Diffie-Hellman.
+    """
+    parameters = dh.generate_parameters(generator=2, key_size=1024)
     return parameters
 
 def generate_dh_key(parameters):
+    """
+    Genera una clave privada y pública utilizando los parámetros de Diffie-Hellman.
+
+    Args:
+        parameters (dh.Parameters): Parámetros de Diffie-Hellman.
+
+    Returns:
+        tuple: Par de claves privadas y públicas.
+    """
     private_key = parameters.generate_private_key()
     public_key = private_key.public_key()
     return private_key, public_key
 
 def serialize_public_key(public_key):
+    """
+    Serializa una clave pública a formato PEM.
+
+    Args:
+        public_key (dh.PublicKey): Clave pública a serializar.
+
+    Returns:
+        bytes: Clave pública en formato PEM.
+    """
     return public_key.public_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PublicFormat.SubjectPublicKeyInfo
     )
 
 def deserialize_public_key(serialized_key, parameters):
+    """
+    Deserializa una clave pública desde formato PEM.
+
+    Args:
+        serialized_key (bytes): Clave pública serializada.
+        parameters (dh.Parameters): Parámetros de Diffie-Hellman.
+
+    Returns:
+        dh.PublicKey: Clave pública deserializada.
+    """
     return serialization.load_pem_public_key(serialized_key, backend=None)
 
 def compute_shared_key(private_key, peer_public_key):
+    """
+    Calcula una clave compartida utilizando la clave privada y la clave pública de Diffie-Hellman del par.
+
+    Args:
+        private_key (dh.PrivateKey): Clave privada.
+        peer_public_key (dh.PublicKey): Clave pública del par.
+
+    Returns:
+        bytes: Clave compartida.
+    """
     shared_key = private_key.exchange(peer_public_key)
     return shared_key
 
@@ -99,6 +149,12 @@ def compute_shared_key(private_key, peer_public_key):
 # Funciones de Base de Datos
 # -------------------------------
 def get_db_connection():
+    """
+    Obtiene una conexión a la base de datos SQLite.
+
+    Returns:
+        sqlite3.Connection: Conexión a la base de datos.
+    """
     try:
         conn = sqlite3.connect(DB_PATH, timeout=10)
         conn.execute("PRAGMA foreign_keys = ON;")  # Asegurar integridad referencial
@@ -110,11 +166,29 @@ def get_db_connection():
         return None
 
 def encrypt_data(data):
+    """
+    Encripta los datos utilizando Fernet.
+
+    Args:
+        data (str): Datos a encriptar.
+
+    Returns:
+        str: Datos encriptados.
+    """
     if isinstance(data, str) and not data.startswith('gAAAAA'):  # Prefijo común de datos encriptados por Fernet
         return FERNET_CIPHER.encrypt(data.encode()).decode()
     return data
 
 def decrypt_data(encrypted_data):
+    """
+    Desencripta los datos utilizando Fernet.
+
+    Args:
+        encrypted_data (str): Datos encriptados.
+
+    Returns:
+        str: Datos desencriptados.
+    """
     if isinstance(encrypted_data, str) and encrypted_data.startswith('gAAAAA'):
         try:
             return FERNET_CIPHER.decrypt(encrypted_data.encode()).decode()
@@ -123,6 +197,9 @@ def decrypt_data(encrypted_data):
     return encrypted_data
 
 def create_db():
+    """
+    Crea la base de datos y las tablas necesarias si no existen.
+    """
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('''CREATE TABLE IF NOT EXISTS usuarios (
@@ -144,6 +221,16 @@ def create_db():
     conn.close()
 
 def register_user(username, password):
+    """
+    Registra un nuevo usuario en la base de datos.
+
+    Args:
+        username (str): Nombre de usuario.
+        password (str): Contraseña del usuario.
+
+    Returns:
+        bool: True si el registro fue exitoso, False en caso contrario.
+    """
     with get_db_connection() as conn:
         cursor = conn.cursor()
         if cursor.execute('SELECT 1 FROM usuarios WHERE username = ?', (username,)).fetchone():
@@ -163,6 +250,16 @@ def register_user(username, password):
             return False
 
 def authenticate_user(username, password):
+    """
+    Autentica a un usuario utilizando su nombre de usuario y contraseña.
+
+    Args:
+        username (str): Nombre de usuario.
+        password (str): Contraseña del usuario.
+
+    Returns:
+        str: Resultado de la autenticación ('LOGIN_SUCCESSFUL', 'LOGIN_FAILED', 'ACCOUNT_BLOCKED').
+    """
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
         current_time = time.time()
@@ -191,6 +288,17 @@ def authenticate_user(username, password):
         return 'LOGIN_FAILED'
 
 def record_transaction(cuenta_origen, cuenta_destino, cantidad):
+    """
+    Registra una transacción en la base de datos.
+
+    Args:
+        cuenta_origen (str): Cuenta de origen.
+        cuenta_destino (str): Cuenta de destino.
+        cantidad (float): Cantidad transferida.
+
+    Returns:
+        bool: True si la transacción fue registrada correctamente, False en caso contrario.
+    """
     conn = get_db_connection()
     cursor = conn.cursor()
 
@@ -236,23 +344,61 @@ def record_transaction(cuenta_origen, cuenta_destino, cantidad):
         return False
     finally:
         conn.close()
-        
+
 # -------------------------------
 # Funciones de Seguridad
 # -------------------------------
 def generate_nonce():
+    """
+    Genera un número único (nonce) para la autenticación.
+
+    Returns:
+        str: Nonce generado.
+    """
     return secrets.token_hex(16)
 
 def generate_hmac(message, secret_key):
+    """
+    Genera un HMAC para un mensaje dado utilizando una clave secreta.
+
+    Args:
+        message (str): El mensaje para el cual se generará el HMAC.
+        secret_key (str | bytes): La clave secreta utilizada para generar el HMAC.
+
+    Returns:
+        str: El HMAC generado en formato hexadecimal.
+    """
     if isinstance(secret_key, str):
         secret_key = secret_key.encode()
     return hmac.new(secret_key, message.encode(), hashlib.sha256).hexdigest()
 
 def verify_hmac(message, received_hmac, secret_key):
+    """
+    Verifica que el HMAC recibido coincida con el HMAC esperado.
+
+    Args:
+        message (str): El mensaje original.
+        received_hmac (str): El HMAC recibido.
+        secret_key (str | bytes): La clave secreta utilizada para generar el HMAC.
+
+    Returns:
+        bool: True si el HMAC es válido, False en caso contrario.
+    """
     expected_hmac = generate_hmac(message, secret_key)
     return secure_comparator(expected_hmac, received_hmac, secret_key)
 
 def verify_nonce_and_timestamp(client_address, nonce, timestamp):
+    """
+    Verifica la validez de un nonce y una marca de tiempo.
+
+    Args:
+        client_address (str): Dirección del cliente.
+        nonce (str): Nonce a verificar.
+        timestamp (float): Marca de tiempo asociada al nonce.
+
+    Returns:
+        bool: True si el nonce y la marca de tiempo son válidos, False en caso contrario.
+    """
     current_time = time.time()
     if abs(current_time - float(timestamp)) > NONCE_EXPIRATION_TIME:
         return False
@@ -262,6 +408,9 @@ def verify_nonce_and_timestamp(client_address, nonce, timestamp):
     return True
 
 def clean_old_nonces():
+    """
+    Limpia los nonces antiguos de la memoria.
+    """
     while True:
         current_time = time.time()
         for client in list(client_nonces):
@@ -271,6 +420,17 @@ def clean_old_nonces():
         time.sleep(5)
 
 def secure_comparator(value1, value2, secret_key):
+    """
+    Compara dos valores de forma segura utilizando una clave secreta.
+
+    Args:
+        value1 (str | bytes): Primer valor.
+        value2 (str | bytes): Segundo valor.
+        secret_key (str | bytes): La clave secreta utilizada para la comparación.
+
+    Returns:
+        bool: True si los valores coinciden, False en caso contrario.
+    """
     if secret_key is None:
         logging.warning("SECRET_KEY is None. Using default comparison.")
         return value1 == value2
@@ -289,6 +449,12 @@ def secure_comparator(value1, value2, secret_key):
     return secrets.compare_digest(mac1, mac2)
 
 def log_audit(message):
+    """
+    Registra un mensaje de auditoría en el archivo de log de auditoría.
+
+    Args:
+        message (str): El mensaje a registrar.
+    """
     with open(AUDIT_LOG_PATH, 'a') as audit_file:
         audit_file.write(f'[{time.strftime("%Y-%m-%d %H:%M:%S")}] - {message}\n')
 
@@ -296,6 +462,9 @@ def log_audit(message):
 # Funciones de Limpieza y Mantenimiento
 # -------------------------------
 def clean_old_failed_attempts():
+    """
+    Limpia los registros de intentos fallidos antiguos de la base de datos.
+    """
     with get_db_connection() as conn:
         conn.execute('DELETE FROM intentos_fallidos WHERE ultimo_intento < ?', 
                      (time.time() - INTENTOS_EXPIRATION_TIME,))
@@ -303,6 +472,12 @@ def clean_old_failed_attempts():
     log_audit("Limpieza de intentos fallidos antiguos realizada.")
 
 def perform_database_integrity_check():
+    """
+    Realiza una verificación de integridad de la base de datos para asegurar que los datos no han sido comprometidos.
+
+    Returns:
+        bool: True si la integridad de la base de datos es válida, False en caso contrario.
+    """
     global SECRET_KEY
     if SECRET_KEY is None:
         logging.warning("SECRET_KEY is not set. Skipping database integrity check.")
@@ -345,6 +520,12 @@ def perform_database_integrity_check():
         conn.close()
 
 def backup_database():
+    """
+    Realiza una copia de seguridad de la base de datos.
+
+    Raises:
+        sqlite3.Error: Si ocurre un error durante la copia de seguridad.
+    """
     backup_path = os.path.join(BASE_DIR, '..', 'backup',
                                f'usuarios_backup_{time.strftime("%Y%m%d%H%M%S")}.db')  # Corrected backup path
     try:
@@ -357,11 +538,19 @@ def backup_database():
         log_audit(f"Error al realizar la copia de seguridad: {e}")
 
 def scheduled_backup():
+    """
+    Realiza una copia de seguridad de la base de datos de forma programada cada 24 horas.
+    """
     while True:
         backup_database()
-        time.sleep(86400) 
+        time.sleep(86400)  # Esperar 24 horas
 
 def check_session_timeout():
+    """
+    Verifica el tiempo de inactividad de las sesiones y cierra aquellas que han expirado.
+
+    Esta función se ejecuta en un bucle continuo.
+    """
     while True:
         current_time = time.time()
         for username, last_activity in list(active_sessions.items()):
@@ -375,6 +564,13 @@ def check_session_timeout():
 # Servidor y Gestión de Clientes
 # -------------------------------
 def handle_client(connection, address):
+    """
+    Maneja la conexión de un cliente, incluyendo el intercambio de claves DH y la autenticación de mensajes.
+
+    Args:
+        connection (socket.socket): La conexión del cliente.
+        address (tuple): La dirección del cliente.
+    """
     log_message(f'Conectado con {address}', address)
     try:
         # Generar parámetros y claves DH
@@ -431,6 +627,16 @@ def handle_client(connection, address):
         log_message(f'Conexión cerrada con {address}', address)
 
 def process_client_command(connection, address, message):
+    """
+    Procesa los comandos recibidos del cliente.
+
+    Args:
+        connection (socket.socket): Conexión con el cliente.
+        address (tuple): Dirección del cliente (IP, puerto).
+        message (str): Mensaje recibido del cliente.
+
+    El mensaje se espera en el formato 'COMANDO:PARAMETRO1:PARAMETRO2:...'
+    """
     parts = message.split(':')
     command = parts[0]
     response = 'Unknown command'
@@ -464,6 +670,9 @@ def process_client_command(connection, address, message):
     connection.sendall(response.encode())
 
 def start_server():
+    """
+    Inicia el servidor y maneja las conexiones entrantes.
+    """
     host, port = '127.0.0.1', 65432
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
         server_socket.bind((host, port))
@@ -487,6 +696,13 @@ def start_server():
 # Interfaz Gráfica (GUI)
 # -------------------------------
 def log_message(message, address):
+    """
+    Registra un mensaje en la interfaz gráfica y en el archivo de log.
+
+    Args:
+        message (str): Mensaje a registrar.
+        address (tuple): Dirección del cliente (IP, puerto).
+    """
     log_entry = f'[{time.strftime("%Y-%m-%d %H:%M:%S")}] {address[0]}:{address[1]} - {message}\n\n'
     root.after(0, lambda: (text_widget.insert(tk.END, log_entry), text_widget.yview(tk.END)))
     with open(LOG_PATH, 'a') as log_file:

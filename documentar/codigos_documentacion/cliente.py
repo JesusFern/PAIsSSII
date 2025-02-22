@@ -1,23 +1,35 @@
 import hmac
 import hashlib
-import os
-import secrets
 import socket
-import tkinter as tk
-from tkinter import scrolledtext, messagebox
 from interfaz_cliente import InterfazCliente
-from cryptography.hazmat.primitives.asymmetric import dh
 from cryptography.hazmat.primitives import serialization
 
 # La SECRET_KEY ahora se establecerá dinámicamente
 SECRET_KEY = None
 
 def generate_hmac(message, secret_key):
-    """Generar un HMAC dado un mensaje y una clave secreta."""
+    """
+    Generar un HMAC dado un mensaje y una clave secreta.
+
+    Args:
+        message (str): El mensaje para el cual se generará el HMAC.
+        secret_key (bytes): La clave secreta utilizada para generar el HMAC.
+
+    Returns:
+        str: El HMAC generado en formato hexadecimal.
+    """
     return hmac.new(secret_key, message.encode(), hashlib.sha256).hexdigest()
 
 def hmac_decorator(func):
-    """Decorador para añadir HMAC a las solicitudes."""
+    """
+    Decorador para añadir HMAC a las solicitudes.
+
+    Args:
+        func (function): La función a decorar.
+
+    Returns:
+        function: La función decorada con HMAC añadido a la solicitud.
+    """
     def wrapper(self, request):
         request_with_nonce_timestamp = f"{self.nonce}:{self.timestamp}:{request}"
         hmac_value = generate_hmac(request_with_nonce_timestamp, SECRET_KEY)
@@ -27,6 +39,17 @@ def hmac_decorator(func):
     return wrapper
 
 class Cliente:
+    """
+    Clase Cliente que se conecta a un servidor, realiza el intercambio de claves Diffie-Hellman
+    y envía/recibe solicitudes/respuestas con HMAC.
+
+    Attributes:
+        host (str): Dirección del host.
+        port (int): Puerto de conexión.
+        socket (socket.socket): El socket utilizado para la comunicación.
+        nonce (str): El nonce utilizado en las solicitudes.
+        timestamp (str): La marca de tiempo utilizada en las solicitudes.
+    """
     def __init__(self, host='127.0.0.1', port=65432):
         self.host = host
         self.port = port
@@ -46,7 +69,12 @@ class Cliente:
             print(f"Error de conexión: {e}")
 
     def perform_dh_exchange(self):
-        """Realizar el intercambio Diffie-Hellman con el servidor."""
+        """
+        Realizar el intercambio Diffie-Hellman con el servidor para establecer una clave secreta compartida.
+
+        Raises:
+            Exception: Si ocurre un error durante el intercambio Diffie-Hellman.
+        """
         global SECRET_KEY
 
         try:
@@ -92,7 +120,12 @@ class Cliente:
         pass
 
     def receive_response(self):
-        """Recibir una respuesta del servidor."""
+        """
+        Recibir una respuesta del servidor.
+
+        Returns:
+            str: La respuesta recibida del servidor.
+        """
         try:
             response = self.socket.recv(1024).decode('utf-8')
             return response
@@ -111,25 +144,62 @@ class Cliente:
             pass
 
     def register(self, username, password):
-        """Registrar un nuevo usuario en el servidor."""
+        """
+        Registrar un nuevo usuario en el servidor.
+
+        Args:
+            username (str): Nombre de usuario.
+            password (str): Contraseña del usuario.
+
+        Returns:
+            str: Respuesta del servidor.
+        """
         request = f"REGISTER:{username}:{password}"
         self.send_request(request)
         return self.receive_response()
 
     def login(self, username, password):
-        """Iniciar sesión en el servidor."""
+        """
+        Iniciar sesión en el servidor.
+
+        Args:
+            username (str): Nombre de usuario.
+            password (str): Contraseña del usuario.
+
+        Returns:
+            str: Respuesta del servidor.
+        """
         request = f"LOGIN:{username}:{password}"
         self.send_request(request)
         return self.receive_response()
 
     def transaction(self, username, origen, destino, cantidad):
-        """Realizar una transacción entre cuentas."""
+        """
+        Realizar una transacción entre cuentas.
+
+        Args:
+            username (str): Nombre de usuario.
+            origen (str): Cuenta de origen.
+            destino (str): Cuenta de destino.
+            cantidad (float): Cantidad a transferir.
+
+        Returns:
+            str: Respuesta del servidor.
+        """
         request = f"TRANSACTION:{username}:{origen}:{destino}:{cantidad}"
         self.send_request(request)
         return self.receive_response()
 
     def logout(self, username):
-        """Cerrar sesión del servidor."""
+        """
+        Cerrar sesión del servidor.
+
+        Args:
+            username (str): Nombre de usuario.
+
+        Returns:
+            str: Respuesta del servidor.
+        """
         request = f"LOGOUT:{username}"
         self.send_request(request)
         return self.receive_response()

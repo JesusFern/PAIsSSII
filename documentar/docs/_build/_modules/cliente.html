@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>cliente &#8212; Your Project 1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=5ac185f2" />
+    <script src="../_static/documentation_options.js?v=f2a433a1"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for cliente</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">hmac</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">hashlib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">socket</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">interfaz_cliente</span><span class="w"> </span><span class="kn">import</span> <span class="n">InterfazCliente</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cryptography.hazmat.primitives</span><span class="w"> </span><span class="kn">import</span> <span class="n">serialization</span>
+
+<span class="c1"># La SECRET_KEY ahora se establecerá dinámicamente</span>
+<span class="n">SECRET_KEY</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="generate_hmac">
+<a class="viewcode-back" href="../cliente.html#cliente.generate_hmac">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">generate_hmac</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">secret_key</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Generar un HMAC dado un mensaje y una clave secreta.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        message (str): El mensaje para el cual se generará el HMAC.</span>
+<span class="sd">        secret_key (bytes): La clave secreta utilizada para generar el HMAC.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        str: El HMAC generado en formato hexadecimal.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">hmac</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">secret_key</span><span class="p">,</span> <span class="n">message</span><span class="o">.</span><span class="n">encode</span><span class="p">(),</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">)</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="hmac_decorator">
+<a class="viewcode-back" href="../cliente.html#cliente.hmac_decorator">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">hmac_decorator</span><span class="p">(</span><span class="n">func</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Decorador para añadir HMAC a las solicitudes.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        func (function): La función a decorar.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        function: La función decorada con HMAC añadido a la solicitud.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">wrapper</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">):</span>
+        <span class="n">request_with_nonce_timestamp</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">nonce</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">request</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">hmac_value</span> <span class="o">=</span> <span class="n">generate_hmac</span><span class="p">(</span><span class="n">request_with_nonce_timestamp</span><span class="p">,</span> <span class="n">SECRET_KEY</span><span class="p">)</span>
+        <span class="n">request_with_hmac</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">hmac_value</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">request_with_nonce_timestamp</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">sendall</span><span class="p">(</span><span class="n">request_with_hmac</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">func</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">wrapper</span></div>
+
+
+<div class="viewcode-block" id="Cliente">
+<a class="viewcode-back" href="../cliente.html#cliente.Cliente">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Cliente</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Clase Cliente que se conecta a un servidor, realiza el intercambio de claves Diffie-Hellman</span>
+<span class="sd">    y envía/recibe solicitudes/respuestas con HMAC.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        host (str): Dirección del host.</span>
+<span class="sd">        port (int): Puerto de conexión.</span>
+<span class="sd">        socket (socket.socket): El socket utilizado para la comunicación.</span>
+<span class="sd">        nonce (str): El nonce utilizado en las solicitudes.</span>
+<span class="sd">        timestamp (str): La marca de tiempo utilizada en las solicitudes.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">host</span><span class="o">=</span><span class="s1">&#39;127.0.0.1&#39;</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="mi">65432</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">host</span> <span class="o">=</span> <span class="n">host</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">port</span> <span class="o">=</span> <span class="n">port</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">socket</span> <span class="o">=</span> <span class="n">socket</span><span class="o">.</span><span class="n">socket</span><span class="p">(</span><span class="n">socket</span><span class="o">.</span><span class="n">AF_INET</span><span class="p">,</span> <span class="n">socket</span><span class="o">.</span><span class="n">SOCK_STREAM</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nonce</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="Cliente.connect">
+<a class="viewcode-back" href="../cliente.html#cliente.Cliente.connect">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">connect</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Conectar al servidor y realizar el intercambio Diffie-Hellman.&quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">connect</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">host</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="p">))</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>  <span class="c1"># Esperar medio segundo</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">perform_dh_exchange</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">receive_nonce_and_timestamp</span><span class="p">()</span>
+        <span class="k">except</span> <span class="n">socket</span><span class="o">.</span><span class="n">error</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error de conexión: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Cliente.perform_dh_exchange">
+<a class="viewcode-back" href="../cliente.html#cliente.Cliente.perform_dh_exchange">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">perform_dh_exchange</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Realizar el intercambio Diffie-Hellman con el servidor para establecer una clave secreta compartida.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            Exception: Si ocurre un error durante el intercambio Diffie-Hellman.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">global</span> <span class="n">SECRET_KEY</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># Recibir longitud de los parámetros</span>
+            <span class="n">params_length</span> <span class="o">=</span> <span class="nb">int</span><span class="o">.</span><span class="n">from_bytes</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">recv</span><span class="p">(</span><span class="mi">4</span><span class="p">),</span> <span class="n">byteorder</span><span class="o">=</span><span class="s1">&#39;big&#39;</span><span class="p">)</span>
+            <span class="c1"># Recibir parámetros</span>
+            <span class="n">params_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">recv</span><span class="p">(</span><span class="n">params_length</span><span class="p">)</span>
+            
+            <span class="c1"># Recibir longitud de la clave pública</span>
+            <span class="n">pubkey_length</span> <span class="o">=</span> <span class="nb">int</span><span class="o">.</span><span class="n">from_bytes</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">recv</span><span class="p">(</span><span class="mi">4</span><span class="p">),</span> <span class="n">byteorder</span><span class="o">=</span><span class="s1">&#39;big&#39;</span><span class="p">)</span>
+            <span class="c1"># Recibir clave pública</span>
+            <span class="n">pubkey_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">recv</span><span class="p">(</span><span class="n">pubkey_length</span><span class="p">)</span>
+
+            <span class="c1"># Cargar parámetros y clave pública del servidor</span>
+            <span class="n">parameters</span> <span class="o">=</span> <span class="n">serialization</span><span class="o">.</span><span class="n">load_pem_parameters</span><span class="p">(</span><span class="n">params_data</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+            <span class="n">server_public_key</span> <span class="o">=</span> <span class="n">serialization</span><span class="o">.</span><span class="n">load_pem_public_key</span><span class="p">(</span><span class="n">pubkey_data</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+            <span class="c1"># Generar nuestra propia clave privada y pública</span>
+            <span class="n">private_key</span> <span class="o">=</span> <span class="n">parameters</span><span class="o">.</span><span class="n">generate_private_key</span><span class="p">()</span>
+            <span class="n">public_key</span> <span class="o">=</span> <span class="n">private_key</span><span class="o">.</span><span class="n">public_key</span><span class="p">()</span>
+
+            <span class="c1"># Enviar nuestra clave pública al servidor</span>
+            <span class="n">serialized_public_key</span> <span class="o">=</span> <span class="n">public_key</span><span class="o">.</span><span class="n">public_bytes</span><span class="p">(</span>
+                <span class="n">encoding</span><span class="o">=</span><span class="n">serialization</span><span class="o">.</span><span class="n">Encoding</span><span class="o">.</span><span class="n">PEM</span><span class="p">,</span>
+                <span class="nb">format</span><span class="o">=</span><span class="n">serialization</span><span class="o">.</span><span class="n">PublicFormat</span><span class="o">.</span><span class="n">SubjectPublicKeyInfo</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">sendall</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">serialized_public_key</span><span class="p">)</span><span class="o">.</span><span class="n">to_bytes</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">byteorder</span><span class="o">=</span><span class="s1">&#39;big&#39;</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">sendall</span><span class="p">(</span><span class="n">serialized_public_key</span><span class="p">)</span>
+
+            <span class="c1"># Calcular la clave compartida</span>
+            <span class="n">shared_key</span> <span class="o">=</span> <span class="n">private_key</span><span class="o">.</span><span class="n">exchange</span><span class="p">(</span><span class="n">server_public_key</span><span class="p">)</span>
+
+            <span class="c1"># Usar los primeros 32 bytes de la clave compartida como SECRET_KEY</span>
+            <span class="n">SECRET_KEY</span> <span class="o">=</span> <span class="n">shared_key</span><span class="p">[:</span><span class="mi">32</span><span class="p">]</span>
+
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error durante el intercambio Diffie-Hellman: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">raise</span></div>
+
+
+<div class="viewcode-block" id="Cliente.send_request">
+<a class="viewcode-back" href="../cliente.html#cliente.Cliente.send_request">[docs]</a>
+    <span class="nd">@hmac_decorator</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">send_request</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Enviar una solicitud al servidor.&quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="Cliente.receive_response">
+<a class="viewcode-back" href="../cliente.html#cliente.Cliente.receive_response">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">receive_response</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Recibir una respuesta del servidor.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            str: La respuesta recibida del servidor.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">recv</span><span class="p">(</span><span class="mi">1024</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">response</span>
+        <span class="k">except</span> <span class="n">socket</span><span class="o">.</span><span class="n">error</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="Cliente.receive_nonce_and_timestamp">
+<a class="viewcode-back" href="../cliente.html#cliente.Cliente.receive_nonce_and_timestamp">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">receive_nonce_and_timestamp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Recibir un nuevo nonce y timestamp del servidor.&quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">recv</span><span class="p">(</span><span class="mi">1024</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;NONCE:&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="s2">&quot;TIMESTAMP:&quot;</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+                <span class="n">parts</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">nonce</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span>
+        <span class="k">except</span> <span class="n">socket</span><span class="o">.</span><span class="n">error</span><span class="p">:</span>
+            <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="Cliente.register">
+<a class="viewcode-back" href="../cliente.html#cliente.Cliente.register">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">register</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Registrar un nuevo usuario en el servidor.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            username (str): Nombre de usuario.</span>
+<span class="sd">            password (str): Contraseña del usuario.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            str: Respuesta del servidor.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">request</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;REGISTER:</span><span class="si">{</span><span class="n">username</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">password</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">send_request</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">receive_response</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="Cliente.login">
+<a class="viewcode-back" href="../cliente.html#cliente.Cliente.login">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">login</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Iniciar sesión en el servidor.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            username (str): Nombre de usuario.</span>
+<span class="sd">            password (str): Contraseña del usuario.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            str: Respuesta del servidor.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">request</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;LOGIN:</span><span class="si">{</span><span class="n">username</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">password</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">send_request</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">receive_response</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="Cliente.transaction">
+<a class="viewcode-back" href="../cliente.html#cliente.Cliente.transaction">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">transaction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">username</span><span class="p">,</span> <span class="n">origen</span><span class="p">,</span> <span class="n">destino</span><span class="p">,</span> <span class="n">cantidad</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Realizar una transacción entre cuentas.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            username (str): Nombre de usuario.</span>
+<span class="sd">            origen (str): Cuenta de origen.</span>
+<span class="sd">            destino (str): Cuenta de destino.</span>
+<span class="sd">            cantidad (float): Cantidad a transferir.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            str: Respuesta del servidor.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">request</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;TRANSACTION:</span><span class="si">{</span><span class="n">username</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">origen</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">destino</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">cantidad</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">send_request</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">receive_response</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="Cliente.logout">
+<a class="viewcode-back" href="../cliente.html#cliente.Cliente.logout">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">logout</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">username</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Cerrar sesión del servidor.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            username (str): Nombre de usuario.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            str: Respuesta del servidor.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">request</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;LOGOUT:</span><span class="si">{</span><span class="n">username</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">send_request</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">receive_response</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="Cliente.close">
+<a class="viewcode-back" href="../cliente.html#cliente.Cliente.close">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Cerrar la conexión con el servidor.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="Cliente.run">
+<a class="viewcode-back" href="../cliente.html#cliente.Cliente.run">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Función principal para manejar la interfaz y el cliente.&quot;&quot;&quot;</span>
+        <span class="n">interfaz</span> <span class="o">=</span> <span class="n">InterfazCliente</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">interfaz</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+</div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">cliente</span> <span class="o">=</span> <span class="n">Cliente</span><span class="p">()</span>
+    <span class="n">cliente</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span>
+    <span class="n">cliente</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Your Project</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../modules.html">codigos_documentacion</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, Author.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.1</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
