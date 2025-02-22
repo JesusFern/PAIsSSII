@@ -318,7 +318,8 @@ def perform_database_integrity_check():
         conn.close()
 
 def backup_database():
-    backup_path = os.path.join(BASE_DIR, '..', 'backup', f'usuarios_backup_{time.strftime("%Y%m%d%H%M%S")}.db')
+    backup_path = os.path.join(BASE_DIR, '..', 'backup',
+                               f'usuarios_backup_{time.strftime("%Y%m%d%H%M%S")}.db')  # Corrected backup path
     try:
         with get_db_connection() as conn, sqlite3.connect(backup_path) as backup_conn:
             conn.backup(backup_conn)
