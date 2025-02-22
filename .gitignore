@@ -4,3 +4,4 @@ usuarios.db
 audit.log
 db_key.key
 backup/
+logs/
