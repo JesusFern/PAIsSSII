@@ -345,8 +345,13 @@ def perform_database_integrity_check():
         conn.close()
 
 def backup_database():
-    backup_path = os.path.join(BASE_DIR, '..', 'backup',
-                               f'usuarios_backup_{time.strftime("%Y%m%d%H%M%S")}.db')  # Corrected backup path
+    backup_dir = os.path.join(BASE_DIR, '..', 'backup')
+    if not os.path.exists(backup_dir):
+        os.makedirs(backup_dir)
+    
+    backup_filename = f'usuarios_backup_{time.strftime("%Y%m%d%H%M%S")}.db'
+    backup_path = os.path.join(backup_dir, backup_filename)
+    
     try:
         with get_db_connection() as conn, sqlite3.connect(backup_path) as backup_conn:
             conn.backup(backup_conn)
@@ -355,6 +360,9 @@ def backup_database():
     except sqlite3.Error as e:
         log_message(f"Error al realizar la copia de seguridad: {e}", ("Sistema", "Backup"))
         log_audit(f"Error al realizar la copia de seguridad: {e}")
+    except Exception as e:
+        log_message(f"Error inesperado al realizar la copia de seguridad: {e}", ("Sistema", "Backup"))
+        log_audit(f"Error inesperado al realizar la copia de seguridad: {e}")
 
 def scheduled_backup():
     while True:
@@ -472,7 +480,7 @@ def start_server():
         
         # Iniciar hilos de mantenimiento
         for task in [clean_old_nonces, clean_old_failed_attempts, 
-                     check_session_timeout, scheduled_backup]:
+                     check_session_timeout]:
             threading.Thread(target=task, daemon=True).start()
         
         while True:

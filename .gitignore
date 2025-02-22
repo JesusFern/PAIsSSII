@@ -1,5 +1,6 @@
-.gitignore
 __pycache__
 server.log
 usuarios.db
 audit.log
+db_key.key
+backup/
