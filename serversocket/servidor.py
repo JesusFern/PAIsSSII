@@ -20,7 +20,7 @@ SECRET_KEY = secrets.token_bytes(32)  # Generates a secure random 32-byte key
 # Configuración de directorios y rutas
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOG_DIR = os.path.join(BASE_DIR, '..', 'logs')
-DB_DIR = os.path.join(BASE_DIR, '..', 'bd y claves')
+DB_DIR = os.path.join(BASE_DIR, '..', 'bd_claves')
 
 DB_KEY_PATH = os.path.join(DB_DIR, "db_key.key")
 LOG_PATH = os.path.join(LOG_DIR, 'server.log')
@@ -30,6 +30,9 @@ AUDIT_LOG_PATH = os.path.join(LOG_DIR, 'audit.log')
 # Crear directorios si no existen
 if not os.path.exists(LOG_DIR):
     os.makedirs(LOG_DIR)
+
+if not os.path.exists(DB_DIR):
+    os.makedirs(DB_DIR)
 
 # Configuración de logging
 logging.basicConfig(
@@ -100,10 +103,10 @@ def compute_shared_key(private_key, peer_public_key):
 # -------------------------------
 def get_db_connection():
     try:
-        conn = sqlite3.connect(DB_PATH, timeout=10)
-        conn.execute("PRAGMA foreign_keys = ON;")  # Asegurar integridad referencial
-        conn.execute("PRAGMA journal_mode = WAL;")  # Mejor resistencia a fallos
-        conn.execute("PRAGMA busy_timeout = 5000;")  # Esperar si la base de datos está bloqueada
+        conn = sqlite3.connect(DB_PATH, timeout=30)  # Aumenta el timeout a 30 segundos
+        conn.execute("PRAGMA journal_mode=WAL")  # Usa el modo Write-Ahead Logging
+        conn.execute("PRAGMA foreign_keys = ON;")
+        conn.execute("PRAGMA busy_timeout = 10000;")  # Espera hasta 10 segundos si la base de datos está ocupada
         return conn
     except sqlite3.Error as e:
         logging.error(f"Database connection error: {e}")
@@ -123,25 +126,54 @@ def decrypt_data(encrypted_data):
     return encrypted_data
 
 def create_db():
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('''CREATE TABLE IF NOT EXISTS usuarios (
-                        username TEXT PRIMARY KEY,
-                        hashed_password TEXT,
-                        salt TEXT)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS transacciones (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        cuenta_origen TEXT,
-                        cuenta_destino TEXT,
-                        cantidad TEXT,
-                        hash TEXT,
-                        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS intentos_fallidos (
-                        username TEXT PRIMARY KEY,
-                        intentos INTEGER,
-                        ultimo_intento REAL)''')
-    conn.commit()
-    conn.close()
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            logging.error("Failed to establish database connection")
+            return
+
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute('''CREATE TABLE IF NOT EXISTS usuarios (
+                                username TEXT PRIMARY KEY,
+                                hashed_password TEXT,
+                                salt TEXT)''')
+            cursor.execute('''CREATE TABLE IF NOT EXISTS transacciones (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                cuenta_origen TEXT,
+                                cuenta_destino TEXT,
+                                cantidad TEXT,
+                                hash TEXT,
+                                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')
+            cursor.execute('''CREATE TABLE IF NOT EXISTS intentos_fallidos (
+                                username TEXT PRIMARY KEY,
+                                intentos INTEGER,
+                                ultimo_intento REAL)''')
+            
+            # Verificar si la tabla de usuarios está vacía
+            cursor.execute("SELECT COUNT(*) FROM usuarios")
+            if cursor.fetchone()[0] == 0:
+                # Llenar con usuarios de ejemplo
+                users = {
+                    "admin": "admin",
+                    "user1": "password1",
+                    "user2": "password2",
+                    "user3": "password3"
+                }
+                for username, password in users.items():
+                    salt = secrets.token_hex(32)
+                    hashed_password = hashlib.sha256((password + salt).encode()).hexdigest()
+                    encrypted_password = encrypt_data(hashed_password)
+                    encrypted_salt = encrypt_data(salt)
+                    cursor.execute('INSERT INTO usuarios (username, hashed_password, salt) VALUES (?, ?, ?)',
+                                (username, encrypted_password, encrypted_salt))
+            
+            conn.commit()
+    except sqlite3.Error as e:
+        logging.error(f"Error creating database: {e}")
+    finally:
+        if conn:
+            conn.close()
 
 def register_user(username, password):
     with get_db_connection() as conn:
@@ -296,11 +328,20 @@ def log_audit(message):
 # Funciones de Limpieza y Mantenimiento
 # -------------------------------
 def clean_old_failed_attempts():
-    with get_db_connection() as conn:
-        conn.execute('DELETE FROM intentos_fallidos WHERE ultimo_intento < ?', 
-                     (time.time() - INTENTOS_EXPIRATION_TIME,))
-        conn.commit()
-    log_audit("Limpieza de intentos fallidos antiguos realizada.")
+    conn = get_db_connection()
+    if conn is None:
+        logging.error("Failed to establish database connection for cleaning old failed attempts.")
+        return
+
+    try:
+        with conn:
+            conn.execute('DELETE FROM intentos_fallidos WHERE ultimo_intento < ?', 
+                         (time.time() - INTENTOS_EXPIRATION_TIME,))
+        log_audit("Limpieza de intentos fallidos antiguos realizada.")
+    except sqlite3.Error as e:
+        logging.error(f"Error during cleaning old failed attempts: {e}")
+    finally:
+        conn.close()
 
 def perform_database_integrity_check():
     global SECRET_KEY
@@ -309,9 +350,12 @@ def perform_database_integrity_check():
         return
 
     conn = get_db_connection()
-    cursor = conn.cursor()
-    
+    if conn is None:
+        logging.error("Failed to establish database connection for integrity check.")
+        return
+
     try:
+        cursor = conn.cursor()
         # Obtener todas las transacciones
         cursor.execute("SELECT id, cuenta_origen, cuenta_destino, cantidad, hash FROM transacciones")
         transactions = cursor.fetchall()
@@ -355,7 +399,7 @@ def backup_database():
     try:
         with get_db_connection() as conn, sqlite3.connect(backup_path) as backup_conn:
             conn.backup(backup_conn)
-        log_message(f"Base de datos respaldada en {backup_path}", ("Sistema", "Backup"))
+        log_message(f"Base de datos respaldada", ("Sistema", "Backup"))
         log_audit(f"Base de datos respaldada en {backup_path}")
     except sqlite3.Error as e:
         log_message(f"Error al realizar la copia de seguridad: {e}", ("Sistema", "Backup"))
