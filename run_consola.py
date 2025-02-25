@@ -5,7 +5,10 @@ def run_server():
     """Ejecutar el servidor en segundo plano sin abrir consola visible."""
     if sys.platform == "win32":
         # En Windows, usamos pythonw.exe para evitar que se abra la consola
-        subprocess.Popen(['pythonw', 'serversocket/servidor.py'], 
+        
+        subprocess.Popen(['python', 'serversocket/salt_server.py'], 
+                         creationflags=subprocess.CREATE_NO_WINDOW)
+        subprocess.Popen(['python', 'serversocket/servidor.py'], 
                          creationflags=subprocess.CREATE_NO_WINDOW)
     else:
         print(f"Este script está diseñado para Windows. No se puede ejecutar en {sys.platform}.")
