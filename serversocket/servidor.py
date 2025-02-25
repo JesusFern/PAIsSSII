@@ -98,6 +98,15 @@ def compute_shared_key(private_key, peer_public_key):
     shared_key = private_key.exchange(peer_public_key)
     return shared_key
 
+
+# Función para obtener la sal del servidor de sal
+def get_salt_from_server(username):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.connect(('127.0.0.1', 65433))
+        s.sendall(f'GET_SALT:{username}'.encode())
+        salt = s.recv(1024).decode()
+    return salt
+
 # -------------------------------
 # Funciones de Base de Datos
 # -------------------------------
@@ -136,8 +145,11 @@ def create_db():
             cursor = conn.cursor()
             cursor.execute('''CREATE TABLE IF NOT EXISTS usuarios (
                                 username TEXT PRIMARY KEY,
-                                hashed_password TEXT,
-                                salt TEXT)''')
+                                hashed_password TEXT)''')
+            cursor.execute('''CREATE TABLE IF NOT EXISTS salts (
+                                username TEXT PRIMARY KEY,
+                                salt TEXT,
+                                FOREIGN KEY(username) REFERENCES usuarios(username))''')
             cursor.execute('''CREATE TABLE IF NOT EXISTS transacciones (
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                                 cuenta_origen TEXT,
@@ -161,12 +173,17 @@ def create_db():
                     "user3": "password3"
                 }
                 for username, password in users.items():
-                    salt = secrets.token_hex(32)
+                    salt = get_salt_from_server(username)
                     hashed_password = hashlib.sha256((password + salt).encode()).hexdigest()
                     encrypted_password = encrypt_data(hashed_password)
                     encrypted_salt = encrypt_data(salt)
-                    cursor.execute('INSERT INTO usuarios (username, hashed_password, salt) VALUES (?, ?, ?)',
-                                (username, encrypted_password, encrypted_salt))
+                    try:
+                        cursor.execute('INSERT INTO usuarios (username, hashed_password) VALUES (?, ?)',
+                                    (username, encrypted_password))
+                        cursor.execute('INSERT INTO salts (username, salt) VALUES (?, ?)',
+                                    (username, encrypted_salt))
+                    except sqlite3.Error as e:
+                        logging.error(f"Error inserting user {username}: {e}")
             
             conn.commit()
     except sqlite3.Error as e:
@@ -175,19 +192,22 @@ def create_db():
         if conn:
             conn.close()
 
+# Función para registrar un usuario con la sal obtenida del servidor de sal
 def register_user(username, password):
     with get_db_connection() as conn:
         cursor = conn.cursor()
         if cursor.execute('SELECT 1 FROM usuarios WHERE username = ?', (username,)).fetchone():
             return False
         
-        salt = secrets.token_hex(32)
+        salt = get_salt_from_server(username)
         hashed_password = hashlib.sha256((password + salt).encode()).hexdigest()
         encrypted_password = encrypt_data(hashed_password)
         encrypted_salt = encrypt_data(salt)
         try:
-            cursor.execute('INSERT INTO usuarios (username, hashed_password, salt) VALUES (?, ?, ?)',
-                           (username, encrypted_password, encrypted_salt))
+            cursor.execute('INSERT INTO usuarios (username, hashed_password) VALUES (?, ?)',
+                           (username, encrypted_password))
+            cursor.execute('INSERT INTO salts (username, salt) VALUES (?, ?)',
+                           (username, encrypted_salt))
             conn.commit()
             return True
         except sqlite3.Error as e:
@@ -195,31 +215,38 @@ def register_user(username, password):
             return False
 
 def authenticate_user(username, password):
-    with sqlite3.connect(DB_PATH) as conn:
-        cursor = conn.cursor()
-        current_time = time.time()
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            cursor = conn.cursor()
+            current_time = time.time()
 
-        intentos_data = cursor.execute('SELECT intentos, ultimo_intento FROM intentos_fallidos WHERE username = ?', (username,)).fetchone()
-        if intentos_data and intentos_data[0] >= MAX_INTENTOS and current_time - intentos_data[1] < BLOQUEO_TIEMPO:
-            return 'ACCOUNT_BLOCKED'
+            intentos_data = cursor.execute('SELECT intentos, ultimo_intento FROM intentos_fallidos WHERE username = ?', (username,)).fetchone()
+            if intentos_data and intentos_data[0] >= MAX_INTENTOS and current_time - intentos_data[1] < BLOQUEO_TIEMPO:
+                return 'ACCOUNT_BLOCKED'
 
-        stored_data = cursor.execute('SELECT hashed_password, salt FROM usuarios WHERE username = ?', (username,)).fetchone()
-        if not stored_data:
+            stored_data = cursor.execute('SELECT hashed_password FROM usuarios WHERE username = ?', (username,)).fetchone()
+            stored_salt_data = cursor.execute('SELECT salt FROM salts WHERE username = ?', (username,)).fetchone()
+            if not stored_data or not stored_salt_data:
+                return 'LOGIN_FAILED'
+
+            stored_password = stored_data[0]
+            stored_salt = stored_salt_data[0]
+            decrypted_password = decrypt_data(stored_password)
+            decrypted_salt = decrypt_data(stored_salt)
+
+            salt = get_salt_from_server(username)
+            hashed_input_password = hashlib.sha256((password + salt).encode()).hexdigest()
+
+            if secure_comparator(hashed_input_password, decrypted_password, SECRET_KEY):
+                cursor.execute('DELETE FROM intentos_fallidos WHERE username = ?', (username,))
+                active_sessions[username] = current_time
+                return 'LOGIN_SUCCESSFUL'
+
+            cursor.execute('INSERT OR REPLACE INTO intentos_fallidos (username, intentos, ultimo_intento) VALUES (?, COALESCE((SELECT intentos + 1 FROM intentos_fallidos WHERE username = ?), 1), ?)',
+                        (username, username, current_time))
             return 'LOGIN_FAILED'
-
-        stored_password, stored_salt = stored_data
-        decrypted_password = decrypt_data(stored_password)
-        decrypted_salt = decrypt_data(stored_salt)
-
-        hashed_input_password = hashlib.sha256((password + decrypted_salt).encode()).hexdigest()
-
-        if secure_comparator(hashed_input_password, decrypted_password, SECRET_KEY):
-            cursor.execute('DELETE FROM intentos_fallidos WHERE username = ?', (username,))
-            active_sessions[username] = current_time
-            return 'LOGIN_SUCCESSFUL'
-
-        cursor.execute('INSERT OR REPLACE INTO intentos_fallidos (username, intentos, ultimo_intento) VALUES (?, COALESCE((SELECT intentos + 1 FROM intentos_fallidos WHERE username = ?), 1), ?)',
-                       (username, username, current_time))
+    except sqlite3.Error as e:
+        logging.error(f"Database error: {e}")
         return 'LOGIN_FAILED'
 
 def record_transaction(cuenta_origen, cuenta_destino, cantidad):
