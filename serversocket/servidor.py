@@ -136,8 +136,11 @@ def create_db():
             cursor = conn.cursor()
             cursor.execute('''CREATE TABLE IF NOT EXISTS usuarios (
                                 username TEXT PRIMARY KEY,
-                                hashed_password TEXT,
-                                salt TEXT)''')
+                                hashed_password TEXT)''')
+            cursor.execute('''CREATE TABLE IF NOT EXISTS salt (
+                                username TEXT PRIMARY KEY,
+                                salt TEXT,
+                                FOREIGN KEY (username) REFERENCES usuarios(username))''')
             cursor.execute('''CREATE TABLE IF NOT EXISTS transacciones (
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                                 cuenta_origen TEXT,
@@ -165,8 +168,10 @@ def create_db():
                     hashed_password = hashlib.sha256((password + salt).encode()).hexdigest()
                     encrypted_password = encrypt_data(hashed_password)
                     encrypted_salt = encrypt_data(salt)
-                    cursor.execute('INSERT INTO usuarios (username, hashed_password, salt) VALUES (?, ?, ?)',
-                                (username, encrypted_password, encrypted_salt))
+                    cursor.execute('INSERT INTO usuarios (username, hashed_password) VALUES (?, ?)',
+                                (username, encrypted_password))
+                    cursor.execute('INSERT INTO salt (username, salt) VALUES (?, ?)',
+                                (username, encrypted_salt))
             
             conn.commit()
     except sqlite3.Error as e:
@@ -186,8 +191,10 @@ def register_user(username, password):
         encrypted_password = encrypt_data(hashed_password)
         encrypted_salt = encrypt_data(salt)
         try:
-            cursor.execute('INSERT INTO usuarios (username, hashed_password, salt) VALUES (?, ?, ?)',
-                           (username, encrypted_password, encrypted_salt))
+            cursor.execute('INSERT INTO usuarios (username, hashed_password) VALUES (?, ?)',
+                           (username, encrypted_password))
+            cursor.execute('INSERT INTO salt (username, salt) VALUES (?, ?)',
+                           (username, encrypted_salt))
             conn.commit()
             return True
         except sqlite3.Error as e:
@@ -203,13 +210,14 @@ def authenticate_user(username, password):
         if intentos_data and intentos_data[0] >= MAX_INTENTOS and current_time - intentos_data[1] < BLOQUEO_TIEMPO:
             return 'ACCOUNT_BLOCKED'
 
-        stored_data = cursor.execute('SELECT hashed_password, salt FROM usuarios WHERE username = ?', (username,)).fetchone()
-        if not stored_data:
+        stored_password = cursor.execute('SELECT hashed_password FROM usuarios WHERE username = ?', (username,)).fetchone()
+        stored_salt = cursor.execute('SELECT salt FROM salt WHERE username = ?', (username,)).fetchone()
+        
+        if not stored_password or not stored_salt:
             return 'LOGIN_FAILED'
 
-        stored_password, stored_salt = stored_data
-        decrypted_password = decrypt_data(stored_password)
-        decrypted_salt = decrypt_data(stored_salt)
+        decrypted_password = decrypt_data(stored_password[0])
+        decrypted_salt = decrypt_data(stored_salt[0])
 
         hashed_input_password = hashlib.sha256((password + decrypted_salt).encode()).hexdigest()
 
