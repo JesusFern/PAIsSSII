@@ -6,14 +6,14 @@ class InterfazCliente:
         self.cliente = cliente
         self.logged_in = False
         self.configurar_interfaz()
-        
+
     def configurar_interfaz(self):
         """Configurar la interfaz del usuario."""
         self.root = tk.Tk()
         self.root.title("Cliente de Autenticación")
         self.root.geometry("350x450")
         self.root.config(bg="#f0f0f0")
-        self.root.resizable(False, False) 
+        self.root.resizable(False, False)
 
         self.crear_widgets()
         self.pack_widgets_inicial()
@@ -21,22 +21,27 @@ class InterfazCliente:
     def crear_widgets(self):
         """Crear los widgets de la interfaz."""
         self.title_label = tk.Label(self.root, text="Sistema de Autenticación", font=("Arial", 18, "bold"), bg="#f0f0f0")
-        
+
         self.username_label = tk.Label(self.root, text="Nombre de usuario", font=("Arial", 12), bg="#f0f0f0")
         self.username_entry = tk.Entry(self.root, width=30, font=("Arial", 12))
-        
+        self.username_entry.config(validate="key", validatecommand=(self.root.register(self.validate_entry), "%P"))
+
         self.password_label = tk.Label(self.root, text="Contraseña", font=("Arial", 12), bg="#f0f0f0")
         self.password_entry = tk.Entry(self.root, show="*", width=30, font=("Arial", 12))
-        
+        self.password_entry.config(validate="key", validatecommand=(self.root.register(self.validate_entry), "%P"))
+
         self.from_account_label = tk.Label(self.root, text="Cuenta origen", font=("Arial", 12), bg="#f0f0f0")
         self.from_account_entry = tk.Entry(self.root, width=30, font=("Arial", 12))
-        
+        self.from_account_entry.config(validate="key", validatecommand=(self.root.register(self.validate_entry), "%P"))
+
         self.to_account_label = tk.Label(self.root, text="Cuenta destino", font=("Arial", 12), bg="#f0f0f0")
         self.to_account_entry = tk.Entry(self.root, width=30, font=("Arial", 12))
-        
+        self.to_account_entry.config(validate="key", validatecommand=(self.root.register(self.validate_entry), "%P"))
+
         self.amount_label = tk.Label(self.root, text="Cantidad transferida", font=("Arial", 12), bg="#f0f0f0")
         self.amount_entry = tk.Entry(self.root, width=30, font=("Arial", 12))
-        
+        self.amount_entry.config(validate="key", validatecommand=(self.root.register(self.validate_entry), "%P"))
+
         self.inform_label = tk.Message(self.root, text="", font=("Arial", 10), bg="#f0f0f0", fg="gray", width=320, justify=tk.CENTER)
 
         self.register_button = tk.Button(self.root, text="Registrar", width=20, font=("Arial", 12), bg="#4CAF50", fg="white", command=self.register_user)
@@ -45,6 +50,16 @@ class InterfazCliente:
         self.transaction_button = tk.Button(self.root, text="Realizar transacción", width=20, font=("Arial", 12), bg="#FFC107", fg="black", command=self.make_transaction)
 
         self.footer_label = tk.Label(self.root, text="© 2025 Cliente de Autenticación", font=("Arial", 8), bg="#f0f0f0")
+
+    def validate_entry(self, P):
+        """Validar la entrada de texto, incluyendo el punto y coma."""
+        if len(P) <= 20:
+            if ";" in P:
+                self.inform_label.config(text="No se permiten puntos y comas.") 
+                return False  # Rechazar la entrada
+            return True
+        else:
+            return False
 
     def pack_widgets_inicial(self):
         """Organizar los widgets inicialmente."""

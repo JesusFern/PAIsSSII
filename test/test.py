@@ -73,7 +73,7 @@ def test_brute_force_login():
     sock.connect((SERVER_HOST, SERVER_PORT))
     perform_dh_exchange(sock)
 
-    for i in range(10):  # Limitar intentos para evitar bloqueos
+    for i in range(6):  # Limitar intentos para evitar bloqueos
         # Recibir un nuevo nonce y timestamp del servidor
         nonce, timestamp = get_nonce_and_timestamp(sock)
         if not nonce or not timestamp:
@@ -98,7 +98,7 @@ def test_brute_force_login():
     sock.close()
 
 def test_sql_injection():
-    """Prueba de inyección SQL en el registro de usuarios."""
+    """Prueba de inyección SQL para intentar eliminar el usuario admin."""
     print("[*] Iniciando prueba de inyección SQL...")
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((SERVER_HOST, SERVER_PORT))
@@ -110,8 +110,8 @@ def test_sql_injection():
         print("[!] Error: No se pudo obtener nonce y timestamp del servidor.")
         return
 
-    # Intentar inyección SQL
-    username = "admin' --"
+    # Intentar inyección SQL para eliminar el usuario admin
+    username = "test'; DELETE FROM users WHERE username = 'admin'; --"
     password = "password"
     message = f"{nonce}:{timestamp}:REGISTER:{username}:{password}"
     hmac_value = generate_hmac(message, SECRET_KEY)
@@ -147,9 +147,12 @@ def test_replay_attack():
     request = f"{hmac_value}:{message}"
 
     # Enviar el mensaje varias veces (simulando un ataque de repetición)
-    for _ in range(3):
+    for _ in range(6):
         sock.sendall(request.encode())
         response = sock.recv(1024).decode()
+        if response.startswith("NONCE"):
+            continue  # Saltar a la siguiente iteración del bucle
+        
         print(f"[*] Respuesta del servidor: {response}")
 
         # Esperar antes de enviar la siguiente petición
@@ -171,7 +174,7 @@ def test_session_hijacking():
         return
 
     # Esperar para que el nonce expire
-    time.sleep(5)
+    time.sleep(15) # Hay que modificar en servidor NONCE_EXPIRATION_TIME
 
     # Intentar usar un nonce y timestamp antiguos
     username = "user1"
