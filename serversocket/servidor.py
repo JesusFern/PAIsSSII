@@ -63,7 +63,7 @@ if os.path.exists(DB_PATH):
     os.chmod(DB_PATH, 0o600)  # Solo lectura/escritura para el usuario propietario
     
 # Configuración de tiempos y límites
-NONCE_EXPIRATION_TIME = 180  # Tiempo de expiración en segundos para el nonce
+NONCE_EXPIRATION_TIME = 10  # Tiempo de expiración en segundos para el nonce
 MAX_INTENTOS = 5 # Numero de intentos antes de bloqueo
 BLOQUEO_TIEMPO = 300  # Tiempo de bloqueo en segundos (5 minutos)
 INTENTOS_EXPIRATION_TIME = 300  # Tiempo de expiración para intentos fallidos (1 hora)
@@ -77,7 +77,7 @@ active_sessions = {}
 # Funciones de Diffie-Hellman
 # -------------------------------
 def generate_dh_parameters():
-    parameters = dh.generate_parameters(generator=2, key_size=2048)
+    parameters = dh.generate_parameters(generator=2, key_size=1024)
     return parameters
 
 def generate_dh_key(parameters):
