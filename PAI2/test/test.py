@@ -34,11 +34,6 @@ def cliente_simulado(usuario_id, failed):
             print(f"[*] Error en usuario {usuario_id}: Login fallido. Respuesta: {response}")
             failed += 1
 
-        # Simular logout
-        message = f"LOGOUT:{username}"
-        ssock.sendall(message.encode())
-        response = ssock.recv(1024).decode()
-
         ssock.close()
     except ConnectionRefusedError:
         print(f"[*] Error en usuario {usuario_id}: Conexión rechazada. Verifica que el servidor esté en ejecución.")

@@ -12,14 +12,14 @@ SERVER_PORT = 8443
 TIMEOUT = 60  # Tiempo de espera en segundos
 
 # Configurar SSL
-context = ssl.create_default_context()
-context.check_hostname = False
-context.verify_mode = ssl.CERT_NONE
+context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+context.load_cert_chain(certfile="certs/client.crt", keyfile="certs/client.key")
+context.check_hostname = False #remove in production.
+context.verify_mode = ssl.CERT_REQUIRED
+context.load_verify_locations(cafile="certs/server.crt")
 
 class Cliente:
     def __init__(self):
-        self.nonce = None
-        self.timestamp = None
         self.ssock = None
         self.last_activity = time.time()
         self.connect()
