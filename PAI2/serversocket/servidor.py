@@ -20,8 +20,8 @@ logging.basicConfig(level=logging.INFO,
 
 logger = logging.getLogger(__name__)
 
-conn = database.get_db_connection()
-database.create_db(conn)
+# Inicializar la base de datos
+database.create_db()
 
 client_users = {}
 
@@ -41,7 +41,7 @@ def handle_client(connstream, addr):
             if command == "REGISTER":
                 username, password = parts[1], parts[2]
                 logger.info(f"Registro - Usuario: {username}")
-                if database.register_user(conn, username, password):
+                if database.register_user(username, password):
                     connstream.sendall(b"REGISTER_SUCCESS")
                     logger.info(f"Registro exitoso para: {username}")
                     audit_logger.info(f"Usuario registrado: {username}")
@@ -52,7 +52,7 @@ def handle_client(connstream, addr):
 
             elif command == "LOGIN":
                 username, password = parts[1], parts[2]
-                result = database.authenticate_user(conn, username, password)
+                result = database.authenticate_user(username, password)
                 if result == "LOGIN_SUCCESSFUL":
                     connstream.sendall(b"LOGIN_SUCCESS")
                     client_users[connstream] = username
@@ -74,7 +74,7 @@ def handle_client(connstream, addr):
                     logger.warning(f"Mensaje demasiado largo de {username}")
                     audit_logger.warning(f"Mensaje demasiado largo de {username}")
                 else:
-                    database.save_message(conn, username, message)
+                    database.save_message(username, message)
                     connstream.sendall(b"MESSAGE_SENT")
                     logger.info(f"Mensaje guardado de {username}: {message}")
                     audit_logger.info(f"Mensaje guardado de {username}")
@@ -112,7 +112,7 @@ context.maximum_version = ssl.TLSVersion.TLSv1_3
 
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
     server_socket.bind((HOST, PORT))
-    server_socket.listen(350)
+    server_socket.listen(MAX_WORKERS)
     logger.info(f"Servidor escuchando en {HOST}:{PORT}")
 
     try:
@@ -131,9 +131,3 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
                     executor.submit(handle_client, client_socket, addr)
     except ssl.SSLError as e:
         logger.error(f"Error SSL: {e}")
-
-if conn:
-    conn.close()
-    logger.info("Conexión a la base de datos cerrada.")
-
-logger.info("Servidor detenido.")

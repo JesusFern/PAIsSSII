@@ -29,9 +29,9 @@ BLOQUEO_TIEMPO = 60 * 5  # 5 minutos
 # Configuración del servidor
 HOST = '0.0.0.0'
 PORT = 8443
-MAX_WORKERS = 400 # Maximo numero de threads para el thread pool
+MAX_WORKERS = 350
 
 # Configuración SSL
-SSL_ENABLED = False
+SSL_ENABLED = True
 CERT_PATH = "certs/server.crt"
 KEY_PATH = "certs/server.key"

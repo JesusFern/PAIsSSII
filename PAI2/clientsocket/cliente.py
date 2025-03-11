@@ -9,7 +9,7 @@ from interfaz_cliente import InterfazCliente
 # Configuración del cliente
 SERVER_HOST = '127.0.0.1'
 SERVER_PORT = 8443
-TIMEOUT = 60  # Tiempo de espera en segundos
+TIMEOUT = 60*5  # Tiempo de espera en segundos
 
 # Configurar SSL
 context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
