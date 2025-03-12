@@ -3,3 +3,4 @@ bd_claves/
 backup/
 logs/
 certs/
+/venv/
